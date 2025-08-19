@@ -259,20 +259,146 @@ const App = () => {
 
   // Hardcoded data for Strength of Schedule (from previous responses)
   const strengthOfScheduleData = [
-    { team: 'NBAngryWolfDan', grade: 'A-', analysis: 'This is a great schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.' },
-    { team: 'Scary Terry\'s Terror Squad', grade: 'A-', analysis: 'This is a great schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.' },
-    { team: 'The Bengal King', grade: 'A-', analysis: 'This is a great schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.' },
-    { team: '#firebevell', grade: 'A-', analysis: 'This is a great schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.' },
-    { team: 'Stroud Control', grade: 'B+', analysis: 'This is a good schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.' },
-    { team: 'Pimp Named Slickback', grade: 'B+', analysis: 'This is a good schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.' },
-    { team: 'No Rookies', grade: 'B+', analysis: 'This is a good schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.' },
-    { team: 'Dr. Tran', grade: 'B', analysis: 'This isn\'t a walk in the park, but it\'s not a death sentence either. You have some tough matchups, but there are enough manageable games to give you a fighting chance.' },
-    { team: 'Edmonton End-Zone Elite', grade: 'B-', analysis: 'This isn\'t a walk in the park, but it\'s not a death sentence either. You have some tough matchups, but there are enough manageable games to give you a fighting chance.' },
-    { team: 'Wasted Money', grade: 'C+', analysis: 'This is a tough schedule for a team that has some holes. You\'ll need your stars to stay healthy and play at an elite level to have any chance.' },
-    { team: 'Saquon Two Three Four', grade: 'C', analysis: 'This isn\'t a walk in the park, but it\'s not a death sentence either. You have some tough matchups, but there are enough manageable games to give you a fighting chance.' },
-    { team: 'BDB\'z', grade: 'B-', analysis: 'This isn\'t a walk in the park, but it\'s not a death sentence either. You have some tough matchups, but there are enough manageable games to give you a fighting chance.' },
-    { team: 'The Jonathan Taylors', grade: 'F', analysis: 'This is a nightmare schedule. You\'re going to face a lot of strong teams, and you\'ll need a lot of luck to even make it to the playoffs.' },
-    { team: 'D&B', grade: 'D', analysis: 'The path to glory is a muddy, uphill battle. Your opponents are consistently stronger than you, and you\'ll need a lot of luck to even sniff the playoffs.' },
+    {
+      team: 'NBAngryWolfDan',
+      grade: 'A-',
+      analysis: 'This is a great schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.',
+      biggestGame: {
+        week: 'Week 2',
+        opponent: 'Scary Terry\'s Terror Squad',
+        narrative: 'The top two titans clash early! This Week 2 showdown against Scary Terry\'s Terror Squad will set the tone for who truly rules this league. Expect fireworks and maybe a little trash talk.'
+      }
+    },
+    {
+      team: 'Scary Terry\'s Terror Squad',
+      grade: 'A-',
+      analysis: 'This is a great schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.',
+      biggestGame: {
+        week: 'Week 12',
+        opponent: 'The Bengal King',
+        narrative: 'Forget Halloween, this Week 12 matchup against The Bengal King is the real fright night. A late-season battle with major playoff implications, where every catch and run could determine their destiny.'
+      }
+    },
+    {
+      team: 'The Bengal King',
+      grade: 'A-',
+      analysis: 'This is a great schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.',
+      biggestGame: {
+        week: 'Week 1',
+        opponent: 'Scary Terry\'s Terror Squad',
+        narrative: 'Kicking off the season with a bang! This Week 1 slugfest against Scary Terry\'s Terror Squad is a true test of their championship aspirations right out of the gate. No time for a warm-up, King.'
+      }
+    },
+    {
+      team: '#firebevell',
+      grade: 'A-',
+      analysis: 'This is a great schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.',
+      biggestGame: {
+        week: 'Week 10',
+        opponent: 'NBAngryWolfDan',
+        narrative: 'Circle Week 10 on your calendars, folks! #firebevell faces the league\'s top dog, NBAngryWolfDan. This is their chance to prove they\'re more than just a playoff hopeful – they\'re a legitimate threat to the throne.'
+      }
+    },
+    {
+      team: 'Stroud Control',
+      grade: 'B+',
+      analysis: 'This is a good schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.',
+      biggestGame: {
+        week: 'Week 13',
+        opponent: 'NBAngryWolfDan',
+        narrative: 'A late-season gauntlet! Stroud Control gets a shot at the top-ranked NBAngryWolfDan in Week 13. This game could either solidify their playoff spot or send them spiraling into the wild card abyss.'
+      }
+    },
+    {
+      team: 'Pimp Named Slickback',
+      grade: 'B+',
+      analysis: 'This is a good schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.',
+      biggestGame: {
+        week: 'Week 6',
+        opponent: 'NBAngryWolfDan',
+        narrative: 'Time to see if the pimp hand is strong! Facing the league leader, NBAngryWolfDan, in Week 6 is a prime opportunity for Pimp Named Slickback to make a statement. Or, you know, get humbled.'
+      }
+    },
+    {
+      team: 'No Rookies',
+      grade: 'B+',
+      analysis: 'This is a good schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.',
+      biggestGame: {
+        week: 'Week 4',
+        opponent: 'NBAngryWolfDan',
+        narrative: 'The \'No Rookies\' philosophy gets its ultimate test in Week 4 against the top-ranked NBAngryWolfDan. Can veteran savvy overcome raw power? This is where we find out if experience truly trumps youth... or if it just means you\'re old.'
+      }
+    },
+    {
+      team: 'Dr. Tran',
+      grade: 'B',
+      analysis: 'This isn\'t a walk in the park, but it\'s not a death sentence either. You have some tough matchups, but there are enough manageable games to give you a fighting chance.',
+      biggestGame: {
+        week: 'Week 8',
+        opponent: 'NBAngryWolfDan',
+        narrative: 'A mid-season gut check! Dr. Tran faces the formidable NBAngryWolfDan in Week 8. This game will either be a stepping stone to respectability or a harsh dose of reality.'
+      }
+    },
+    {
+      team: 'Edmonton End-Zone Elite',
+      grade: 'B-',
+      analysis: 'This isn\'t a walk in the park, but it\'s not a death sentence either. You have some tough matchups, but there are enough manageable games to give you a fighting chance.',
+      biggestGame: {
+        week: 'Week 6',
+        opponent: '#firebevell',
+        narrative: 'The Canadian contingent gets a major challenge in Week 6 against #firebevell. This is their chance to prove they belong in the upper echelon, or just confirm they\'re happy being a middle-of-the-pack team.'
+      }
+    },
+    {
+      team: 'Wasted Money',
+      grade: 'C+',
+      analysis: 'This is a tough schedule for a team that has some holes. You\'ll need your stars to stay healthy and play at an elite level to have any chance.',
+      biggestGame: {
+        week: 'Week 5',
+        opponent: '#firebevell',
+        narrative: 'The \'Wasted Money\' squad gets a chance to redeem their draft spending in Week 5 against #firebevell. A win here would be huge for their playoff hopes, otherwise, it\'s just more money down the drain.'
+      }
+    },
+    {
+      team: 'Saquon Two Three Four',
+      grade: 'C',
+      analysis: 'This isn\'t a walk in the park, but it\'s not a death sentence either. You have some tough matchups, but there are enough manageable games to give you a fighting chance.',
+      biggestGame: {
+        week: 'Week 3',
+        opponent: '#firebevell',
+        narrative: 'An early season test! Saquon Two Three Four faces #firebevell in Week 3. This game will show if their top-heavy roster can hang with the league\'s contenders, or if they\'ll be stuck in neutral.'
+      }
+    },
+    {
+      team: 'BDB\'z',
+      grade: 'B-',
+      analysis: 'This isn\'t a walk in the park, but it\'s not a death sentence either. You have some tough matchups, but there are enough manageable games to give you a fighting chance.',
+      biggestGame: {
+        week: 'Week 8',
+        opponent: '#firebevell',
+        narrative: 'The BDB\'z get a brutal mid-season draw against #firebevell in Week 8. With their top-heavy roster, this game is either a statement win or a stark reminder of their lack of depth.'
+      }
+    },
+    {
+      team: 'The Jonathan Taylors',
+      grade: 'F',
+      analysis: 'This is a nightmare schedule. You\'re going to face a lot of strong teams, and you\'ll need a lot of luck to even make it to the playoffs.',
+      biggestGame: {
+        week: 'Week 1',
+        opponent: 'NBAngryWolfDan',
+        narrative: 'Welcome to the thunderdome, Jonathan Taylors! Kicking off the season against the league\'s top team, NBAngryWolfDan, is a baptism by fire. This game could define their season\'s narrative before it even properly begins.'
+      }
+    },
+    {
+      team: 'D&B',
+      grade: 'D',
+      analysis: 'The path to glory is a muddy, uphill battle. Your opponents are consistently stronger than you, and you\'ll need a lot of luck to even sniff the playoffs.',
+      biggestGame: {
+        week: 'Week 1',
+        opponent: '#firebevell',
+        narrative: 'Oh, D&B. Starting the season against #firebevell is like bringing a knife to a gunfight. This Week 1 matchup is less about winning and more about damage control. Good luck, you\'ll need it.'
+      }
+    },
   ];
 
 
@@ -368,7 +494,7 @@ const App = () => {
                         key={idx}
                         src={player.image}
                         alt={player.name}
-                        className="w-8 h-8 rounded-full object-cover mr-1 border-2 border-purple-500"
+                        className="w-12 h-12 rounded-full object-cover mr-1 border-2 border-purple-500" // Increased size here
                         onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }} // Remove image if not found
                         title={player.name}
                       />
@@ -401,7 +527,7 @@ const App = () => {
                         <img
                           src={item.image}
                           alt={item.player}
-                          className="w-10 h-10 rounded-full object-cover mr-3 border-2 border-green-500"
+                          className="w-12 h-12 rounded-full object-cover mr-3 border-2 border-green-500" // Increased size here
                           onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
                           title={item.player}
                         />
@@ -427,7 +553,7 @@ const App = () => {
                         <img
                           src={item.image}
                           alt={item.player}
-                          className="w-10 h-10 rounded-full object-cover mr-3 border-2 border-red-500"
+                          className="w-12 h-12 rounded-full object-cover mr-3 border-2 border-red-500" // Increased size here
                           onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
                           title={item.player}
                         />
@@ -452,8 +578,14 @@ const App = () => {
                 <div key={teamSoS.team} className="bg-zinc-800 p-6 rounded-2xl shadow-xl shadow-zinc-950/50 border border-zinc-700 transition-transform duration-300 hover:scale-[1.01] hover:shadow-2xl hover:shadow-purple-900/50">
                   <h3 className="text-2xl font-semibold text-white mb-2">{teamSoS.team}</h3>
                   <p className="text-zinc-300 leading-relaxed">
-                            <span className="font-medium">SoS Grade:</span> <span className={`font-bold ${teamSoS.grade === 'A+' ? 'text-emerald-400' : teamSoS.grade === 'A-' ? 'text-emerald-300' : teamSoS.grade === 'B+' ? 'text-lime-400' : teamSoS.grade === 'B' ? 'text-lime-300' : teamSoS.grade === 'B-' ? 'text-yellow-400' : teamSoS.grade === 'C+' ? 'text-yellow-300' : teamSoS.grade === 'C' ? 'text-orange-300' : teamSoS.grade === 'C-' ? 'text-orange-400' : teamSoS.grade === 'D+' ? 'text-red-300' : teamSoS.grade === 'D' ? 'text-red-400' : 'text-red-500'}`}>{teamSoS.grade}</span>
+                    <span className="font-medium">SoS Grade:</span> <span className={`font-bold ${teamSoS.grade === 'A+' ? 'text-emerald-400' : teamSoS.grade === 'A-' ? 'text-emerald-300' : teamSoS.grade === 'B+' ? 'text-lime-400' : teamSoS.grade === 'B' ? 'text-lime-300' : teamSoS.grade === 'B-' ? 'text-yellow-400' : teamSoS.grade === 'C+' ? 'text-yellow-300' : teamSoS.grade === 'C' ? 'text-orange-300' : teamSoS.grade === 'C-' ? 'text-orange-400' : teamSoS.grade === 'D+' ? 'text-red-300' : teamSoS.grade === 'D' ? 'text-red-400' : 'text-red-500'}`}>{teamSoS.grade}</span>
                   </p>
+                  {teamSoS.biggestGame && (
+                    <div className="mt-4 p-3 bg-zinc-700 rounded-lg border border-zinc-600 shadow-inner">
+                      <p className="font-semibold text-purple-300">🔥 Biggest Game: {teamSoS.biggestGame.week} vs. {teamSoS.biggestGame.opponent}</p>
+                      <p className="text-zinc-400 text-sm mt-1">{teamSoS.biggestGame.narrative}</p>
+                    </div>
+                  )}
                   <p className="text-zinc-300 mt-2">{teamSoS.analysis}</p>
                 </div>
               ))
