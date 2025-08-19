@@ -20,7 +20,7 @@ const App = () => {
     },
     {
       rank: 2,
-      team: 'Scary Terry\'s Ter...',
+      team: 'Scary Terry\'s Terror Squad',
       analysis: 'This team is loaded with talent. They paid up for Alvin Kamara ($50) and Kenneth Walker III ($46), two solid running backs. But their real strength is at the wide receiver position. Garrett Wilson ($34), Travis Hunter ($17), and DeVonta Smith ($31) are all excellent values. They also got Jayden Daniels for $30, who could be a league-winner at quarterback. They even managed to get a great tight end in Travis Kelce for a shockingly low price of $18. This team is a well-oiled machine, and they are a legitimate championship contender.',
       likelihood: 'Extremely high. This team is a favorite to win it all.',
       players: [
@@ -110,7 +110,7 @@ const App = () => {
     },
     {
       rank: 9,
-      team: 'Edmonton End-Zone...',
+      team: 'Edmonton End-Zone Elite',
       analysis: 'The Canadian connection comes in at number nine, but they\'ll need to channel more than their inner Wayne Gretzky to win. They were a budget-conscious team from the start, snagging Amon-Ra St. Brown for a relatively fair $85 and Nico Collins for a steal at $65. This Houston stack could be a league-winner. However, the rest of their roster is just... there. Josh Jacobs for $57 is a classic example of paying for a name from a couple years ago. Baker Mayfield for $8 is a great value, but can he sustain his production? This team has a decent starting lineup, but their bench is a collection of guys that make you go, "Oh, yeah, he\'s still in the league." They did well on value but didn\'t take enough risks to become truly great.',
       likelihood: 'Middling. They\'ll be a tough out on a week-to-week basis, but a championship is a stretch.',
       players: [
@@ -134,7 +134,7 @@ const App = () => {
     },
     {
       rank: 11,
-      team: 'Saquon Two Three...',
+      team: 'Saquon Two Three Four',
       analysis: 'This team is named after their most expensive player, and for good reason. They went all in on the big names, shelling out a massive $122 for Saquon Barkley and a hefty $96 for Tee Higgins. Their draft was a masterpiece of "I\'m not here to mess around." They paid up for who they wanted and got them, including a great value on Dak Prescott for $36. They also splurged on the consensus top defense, the Eagles, for a league-high $12. So why are they so low? Their roster has some holes, particularly at the WR position after Higgins, and their bench is a hodgepodge of forgotten players and fliers. They have a great foundation, but if Barkley or Higgins underperforms, the entire house of cards will come crashing down.',
       likelihood: 'Decent, but they have no margin for error.',
       players: [
@@ -185,7 +185,7 @@ const App = () => {
       {
         player: 'Travis Kelce',
         cost: '$18',
-        team: 'Scary Terry\'s Ter...',
+        team: 'Scary Terry\'s Terror Squad',
         reason: 'This is an absolute highway robbery. The greatest tight end of all time, the one with the most famous girlfriend on the planet, went for just $18. Are you kidding me? This is the kind of value that wins leagues. While some may argue his age is a factor, for $18, he could get half his normal production and still be a top-5 tight end. A true fantasy guru\'s dream.',
         image: 'https://a.espncdn.com/i/headshots/nfl/players/full/2577418.png'
       },
@@ -260,16 +260,16 @@ const App = () => {
   // Hardcoded data for Strength of Schedule (from previous responses)
   const strengthOfScheduleData = [
     { team: 'NBAngryWolfDan', grade: 'A-', analysis: 'This is a great schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.' },
-    { team: 'Scary Terry\'s Ter...', grade: 'A-', analysis: 'This is a great schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.' },
+    { team: 'Scary Terry\'s Terror Squad', grade: 'A-', analysis: 'This is a great schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.' },
     { team: 'The Bengal King', grade: 'A-', analysis: 'This is a great schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.' },
     { team: '#firebevell', grade: 'A-', analysis: 'This is a great schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.' },
     { team: 'Stroud Control', grade: 'B+', analysis: 'This is a good schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.' },
     { team: 'Pimp Named Slickback', grade: 'B+', analysis: 'This is a good schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.' },
     { team: 'No Rookies', grade: 'B+', analysis: 'This is a good schedule. You have a lot of manageable matchups, and you\'ll get to face off against some of the weaker teams in the league.' },
     { team: 'Dr. Tran', grade: 'B', analysis: 'This isn\'t a walk in the park, but it\'s not a death sentence either. You have some tough matchups, but there are enough manageable games to give you a fighting chance.' },
-    { team: 'Edmonton End-Zone...', grade: 'B-', analysis: 'This isn\'t a walk in the park, but it\'s not a death sentence either. You have some tough matchups, but there are enough manageable games to give you a fighting chance.' },
+    { team: 'Edmonton End-Zone Elite', grade: 'B-', analysis: 'This isn\'t a walk in the park, but it\'s not a death sentence either. You have some tough matchups, but there are enough manageable games to give you a fighting chance.' },
     { team: 'Wasted Money', grade: 'C+', analysis: 'This is a tough schedule for a team that has some holes. You\'ll need your stars to stay healthy and play at an elite level to have any chance.' },
-    { team: 'Saquon Two Three...', grade: 'C', analysis: 'This isn\'t a walk in the park, but it\'s not a death sentence either. You have some tough matchups, but there are enough manageable games to give you a fighting chance.' },
+    { team: 'Saquon Two Three Four', grade: 'C', analysis: 'This isn\'t a walk in the park, but it\'s not a death sentence either. You have some tough matchups, but there are enough manageable games to give you a fighting chance.' },
     { team: 'BDB\'z', grade: 'B-', analysis: 'This isn\'t a walk in the park, but it\'s not a death sentence either. You have some tough matchups, but there are enough manageable games to give you a fighting chance.' },
     { team: 'The Jonathan Taylors', grade: 'F', analysis: 'This is a nightmare schedule. You\'re going to face a lot of strong teams, and you\'ll need a lot of luck to even make it to the playoffs.' },
     { team: 'D&B', grade: 'D', analysis: 'The path to glory is a muddy, uphill battle. Your opponents are consistently stronger than you, and you\'ll need a lot of luck to even sniff the playoffs.' },
@@ -360,4 +360,218 @@ const App = () => {
             <h2 className="text-3xl font-bold text-white mb-4">League Power Rankings</h2>
             {content.powerRankings && content.powerRankings.length > 0 ? (
               content.powerRankings.map((teamData) => (
-                <div key={teamData.rank} className="bg-zinc-800 p-6 rounded-2xl shadow-xl shadow-zinc-950/50 border border-zinc-700 transition-transform duration-300 hover:scale-[1.01] hover:shadow-2xl hover:shadow-purp
+                <div key={teamData.rank} className="bg-zinc-800 p-6 rounded-2xl shadow-xl shadow-zinc-950/50 border border-zinc-700 transition-transform duration-300 hover:scale-[1.01] hover:shadow-2xl hover:shadow-purple-900/50">
+                  <div className="flex items-center mb-3">
+                    <h3 className="text-2xl font-semibold text-white mr-3">#{teamData.rank} {teamData.team}</h3>
+                    {teamData.players && teamData.players.map((player, idx) => (
+                      <img
+                        key={idx}
+                        src={player.image}
+                        alt={player.name}
+                        className="w-8 h-8 rounded-full object-cover mr-1 border-2 border-purple-500"
+                        onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }} // Remove image if not found
+                        title={player.name}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-zinc-300 leading-relaxed mb-3">{teamData.analysis}</p>
+                  <p className="text-sm text-zinc-400 italic">
+                    <span className="font-medium">Likelihood of winning championship:</span> {teamData.likelihood}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p className="text-zinc-400">Power Rankings not yet available for this week.</p>
+            )}
+          </div>
+        );
+      case 'stealsOverpays':
+        return (
+          <div className="space-y-8">
+            <h2 className="text-3xl font-bold text-white mb-6">Draft Steals & Overpays</h2>
+
+            {/* Steals Section */}
+            <div className="bg-gradient-to-br from-green-950/40 to-green-900/30 p-6 rounded-2xl shadow-xl shadow-green-950/50 border border-green-800">
+              <h3 className="text-2xl font-semibold text-green-300 mb-4">Top 5 Steals of the Draft 💰</h3>
+              <div className="space-y-4">
+                {content.stealsOverpays && content.stealsOverpays.steals.length > 0 ? (
+                  content.stealsOverpays.steals.map((item, index) => (
+                    <div key={index} className="bg-zinc-900/70 p-4 rounded-xl shadow-md shadow-zinc-950/50 border border-green-700 transition-transform duration-300 hover:scale-[1.01] hover:shadow-lg hover:shadow-green-800/50">
+                      <div className="flex items-center mb-2">
+                        <img
+                          src={item.image}
+                          alt={item.player}
+                          className="w-10 h-10 rounded-full object-cover mr-3 border-2 border-green-500"
+                          onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                          title={item.player}
+                        />
+                        <p className="font-bold text-xl text-green-200">{item.player} ({item.cost}) - {item.team}</p>
+                      </div>
+                      <p className="text-zinc-300 mt-1">{item.reason}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-zinc-400">Steals not yet available for this week.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Overpays Section */}
+            <div className="bg-gradient-to-br from-red-950/40 to-red-900/30 p-6 rounded-2xl shadow-xl shadow-red-950/50 border border-red-800">
+              <h3 className="text-2xl font-semibold text-red-300 mb-4">Top 5 Overpays of the Draft 💸</h3>
+              <div className="space-y-4">
+                {content.stealsOverpays && content.stealsOverpays.overpays.length > 0 ? (
+                  content.stealsOverpays.overpays.map((item, index) => (
+                    <div key={index} className="bg-zinc-900/70 p-4 rounded-xl shadow-md shadow-zinc-950/50 border border-red-700 transition-transform duration-300 hover:scale-[1.01] hover:shadow-lg hover:shadow-red-800/50">
+                      <div className="flex items-center mb-2">
+                        <img
+                          src={item.image}
+                          alt={item.player}
+                          className="w-10 h-10 rounded-full object-cover mr-3 border-2 border-red-500"
+                          onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                          title={item.player}
+                        />
+                        <p className="font-bold text-xl text-red-200">{item.player} ({item.cost}) - {item.team}</p>
+                      </div>
+                      <p className="text-zinc-300 mt-1">{item.reason}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-zinc-400">Overpays not yet available for this week.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      case 'strengthOfSchedule':
+        return (
+          <div className="space-y-6">
+            <h2 className="text-3xl font-bold text-white mb-4">Strength of Schedule (SoS) Ratings</h2>
+            {content.strengthOfSchedule && content.strengthOfSchedule.length > 0 ? (
+              content.strengthOfSchedule.map((teamSoS) => (
+                <div key={teamSoS.team} className="bg-zinc-800 p-6 rounded-2xl shadow-xl shadow-zinc-950/50 border border-zinc-700 transition-transform duration-300 hover:scale-[1.01] hover:shadow-2xl hover:shadow-purple-900/50">
+                  <h3 className="text-2xl font-semibold text-white mb-2">{teamSoS.team}</h3>
+                  <p className="text-zinc-300 leading-relaxed">
+                            <span className="font-medium">SoS Grade:</span> <span className={`font-bold ${teamSoS.grade === 'A+' ? 'text-emerald-400' : teamSoS.grade === 'A-' ? 'text-emerald-300' : teamSoS.grade === 'B+' ? 'text-lime-400' : teamSoS.grade === 'B' ? 'text-lime-300' : teamSoS.grade === 'B-' ? 'text-yellow-400' : teamSoS.grade === 'C+' ? 'text-yellow-300' : teamSoS.grade === 'C' ? 'text-orange-300' : teamSoS.grade === 'C-' ? 'text-orange-400' : teamSoS.grade === 'D+' ? 'text-red-300' : teamSoS.grade === 'D' ? 'text-red-400' : 'text-red-500'}`}>{teamSoS.grade}</span>
+                  </p>
+                  <p className="text-zinc-300 mt-2">{teamSoS.analysis}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-zinc-400">Strength of Schedule not yet available for this week.</p>
+            )}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-zinc-950 font-sans text-zinc-100 p-4 sm:p-6 lg:p-8">
+      {/*
+        NOTE: Tailwind CSS CDN and Inter font link have been moved to public/index.html
+        for proper loading in a standard React development environment.
+      */}
+      <style>{`
+        body {
+          font-family: 'Inter', sans-serif;
+          background-color: #0c0c0d; /* Even darker background for a richer feel */
+        }
+        /* Custom scrollbar for horizontal navigation */
+        .scroll-hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .scroll-hide-scrollbar {
+            -ms-overflow-style: none; /* IE and Edge */
+            scrollbar-width: none; /* Firefox */
+        }
+      `}</style>
+
+      <div className="max-w-7xl mx-auto bg-zinc-900 rounded-3xl shadow-2xl shadow-purple-950/30 overflow-hidden">
+        {/* Header Section */}
+        <header className="bg-gradient-to-r from-purple-900 to-indigo-950 text-white p-6 sm:p-8 text-center rounded-t-3xl">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-2 tracking-tight drop-shadow-lg">
+            Rex Grossman Championship S League 🏆
+          </h1>
+          <p className="text-purple-200 text-lg sm:text-xl font-light">Your Weekly Fantasy Football Insight Stream</p>
+        </header>
+
+        {/* Weekly Genres / Navigation */}
+        <nav className="bg-zinc-800 py-4 shadow-inner shadow-zinc-950/50">
+          <div className="flex overflow-x-auto scroll-hide-scrollbar px-4 pb-2">
+            {weeksData.map((week) => (
+              <div
+                key={week.id}
+                className={`flex-shrink-0 w-48 mx-2 rounded-xl cursor-pointer overflow-hidden transition-all duration-300 transform
+                  ${activeWeek.id === week.id ? 'scale-105 ring-4 ring-purple-600 shadow-xl shadow-purple-900/50' : 'hover:scale-102 hover:shadow-lg hover:shadow-zinc-700/50'}
+                  bg-zinc-700 hover:bg-zinc-600`}
+                onClick={() => {
+                  setActiveWeek(week);
+                  setActiveInsightSection('powerRankings'); // Reset to power rankings when changing week
+                }}
+              >
+                <img src={week.image} alt={week.title} className="w-full h-28 object-cover rounded-t-xl" onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/600x400/1e2a4a/ffffff?text=Football+Insight'; }} />
+                <div className="p-3">
+                  <h3 className="text-lg font-semibold text-white mb-1 truncate">{week.title}</h3>
+                  <p className="text-zinc-400 text-sm line-clamp-2">{week.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </nav>
+
+        {/* Main Content Area */}
+        <main className="p-6 sm:p-8 lg:p-10 bg-zinc-900">
+          <h2 className="text-4xl font-extrabold text-white mb-6 text-center drop-shadow-md">{activeWeek.title}</h2>
+          <p className="text-lg text-zinc-300 mb-8 text-center font-light">{activeWeek.description}</p>
+
+          {/* Inner Navigation Tabs for Insights */}
+          <nav className="mb-8 bg-zinc-800 rounded-2xl p-3 shadow-xl shadow-zinc-950/50">
+            <div className="flex flex-wrap justify-center space-x-2 sm:space-x-4">
+              <button
+                onClick={() => setActiveInsightSection('powerRankings')}
+                className={`px-5 py-2 rounded-lg font-medium transition-colors duration-200 transform hover:scale-105
+                  ${activeInsightSection === 'powerRankings'
+                    ? 'bg-purple-700 text-white shadow-lg shadow-purple-900/50'
+                    : 'text-zinc-300 hover:bg-zinc-700 hover:text-white'}
+                `}
+              >
+                Power Rankings
+              </button>
+              <button
+                onClick={() => setActiveInsightSection('stealsOverpays')}
+                className={`px-5 py-2 rounded-lg font-medium transition-colors duration-200 transform hover:scale-105
+                  ${activeInsightSection === 'stealsOverpays'
+                    ? 'bg-purple-700 text-white shadow-lg shadow-purple-900/50'
+                    : 'text-zinc-300 hover:bg-zinc-700 hover:text-white'}
+                `}
+              >
+                Steals & Overpays
+              </button>
+              <button
+                onClick={() => setActiveInsightSection('strengthOfSchedule')}
+                className={`px-5 py-2 rounded-lg font-medium transition-colors duration-200 transform hover:scale-105
+                  ${activeInsightSection === 'strengthOfSchedule'
+                    ? 'bg-purple-700 text-white shadow-lg shadow-purple-900/50'
+                    : 'text-zinc-300 hover:bg-zinc-700 hover:text-white'}
+                `}
+              >
+                Strength of Schedule
+              </button>
+            </div>
+          </nav>
+
+          {renderInsightContent()}
+        </main>
+
+        {/* Footer */}
+        <footer className="bg-zinc-950 text-zinc-500 text-center p-4 rounded-b-3xl text-sm font-light">
+          <p>&copy; 2025 Rex Grossman Championship S League Insights. All rights reserved. (Probably not.)</p>
+        </footer>
+      </div>
+    </div>
+  );
+};
+
+export default App;
