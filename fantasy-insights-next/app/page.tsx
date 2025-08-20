@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import AuthButton from "../components/AuthButton";
 
 export default function Home() {
