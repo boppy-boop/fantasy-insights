@@ -65,22 +65,28 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
   id: "yahoo",
   name: "Yahoo",
   type: "oauth",
-  // PKCE is commonly required; NextAuth will add code_challenge and later send code_verifier
-  checks: ["pkce", "state"],
+  checks: ["pkce", "state"], // NextAuth will add code_challenge and send code_verifier
   authorization: {
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
       scope: "openid profile email fspt-r",
       code_challenge_method: "S256",
-      // force exact redirect to match what you registered
+      redirect_uri: process.env.YAHOO_REDIRECT_URI!, // MUST match Yahoo & env
+    },
+  },
+  token: {
+    url: "https://api.login.yahoo.com/oauth2/get_token",
+    // Some providers require redirect_uri on the token call too — add it explicitly
+    params: {
       redirect_uri: process.env.YAHOO_REDIRECT_URI!,
     },
   },
-  token: { url: "https://api.login.yahoo.com/oauth2/get_token" },
   userinfo: { url: "https://api.login.yahoo.com/openid/v1/userinfo" },
   clientId: process.env.YAHOO_CLIENT_ID!,
   clientSecret: process.env.YAHOO_CLIENT_SECRET!,
+  // Yahoo expects HTTP Basic auth for the token exchange:
+  client: { token_endpoint_auth_method: "client_secret_basic" },
   profile(profile) {
     return {
       id: profile.sub,
