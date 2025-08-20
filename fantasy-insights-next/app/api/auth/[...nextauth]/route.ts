@@ -69,18 +69,19 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
   type: "oauth",
   checks: ["state"],
 
+  // REMOVED: explicit redirect_uri from authorization params
   authorization: {
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      scope: "openid",               // keep minimal for now
-      redirect_uri: process.env.YAHOO_REDIRECT_URI!,
+      scope: "openid",
     },
   },
 
+  // REMOVED: explicit redirect_uri from token params
   token: {
     url: "https://api.login.yahoo.com/oauth2/get_token",
-    params: { redirect_uri: process.env.YAHOO_REDIRECT_URI! },
+    // NextAuth will automatically add the correct redirect_uri based on NEXTAUTH_URL
   },
 
   // ❌ REMOVE this line while using only `openid`
