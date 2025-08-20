@@ -81,8 +81,8 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      // MODIFIED: Changed scope to 'openid profile email fspt-r' based on community feedback
-      scope: "openid profile email fspt-r", 
+      // MODIFIED: Changed scope to 'openid email' for testing a more basic set
+      scope: "openid email", 
     },
   },
 
