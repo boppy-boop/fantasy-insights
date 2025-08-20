@@ -65,16 +65,14 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
   id: "yahoo",
   name: "Yahoo",
   type: "oauth",
-  authorization: {
-    // NextAuth will append client_id, redirect_uri, state, etc.
-    url: "https://api.login.yahoo.com/oauth2/request_auth",
-    params: {
-      response_type: "code",
-      // Include OpenID scopes so /userinfo works, plus fantasy read scope
-      scope: "openid profile email fspt-r",
-      // DO NOT set redirect_uri here; NextAuth injects it based on NEXTAUTH_URL
-    },
+ authorization: {
+  url: "https://api.login.yahoo.com/oauth2/request_auth",
+  params: {
+    response_type: "code",
+    scope: "openid profile email fspt-r",
+    redirect_uri: process.env.YAHOO_REDIRECT_URI!, // <-- force exact URI
   },
+},
   token: { url: "https://api.login.yahoo.com/oauth2/get_token" },
   userinfo: { url: "https://api.login.yahoo.com/openid/v1/userinfo" },
   clientId: process.env.YAHOO_CLIENT_ID!,
