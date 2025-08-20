@@ -82,8 +82,8 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
     // NextAuth will automatically add the correct redirect_uri based on NEXTAUTH_URL
   },
 
-  // ❌ REMOVE this line while using only `openid`
-  // userinfo: { url: "https://api.login.yahoo.com/openid/v1/userinfo" },
+  // MODIFIED: Uncommented the userinfo endpoint
+  userinfo: { url: "https://api.login.yahoo.com/openid/v1/userinfo" },
 
   clientId: process.env.YAHOO_CLIENT_ID!,
   clientSecret: process.env.YAHOO_CLIENT_SECRET!,
