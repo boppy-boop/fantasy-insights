@@ -73,7 +73,8 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      scope: "openid fantasy_sports", // MODIFIED: Added 'fantasy_sports' scope
+      // MODIFIED: Changed scope to 'openid profile fantasy_content' based on common Yahoo patterns
+      scope: "openid profile fantasy_content", 
     },
   },
 
