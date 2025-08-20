@@ -67,14 +67,14 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
   type: "oauth",
   checks: ["pkce", "state"], // NextAuth will add code_challenge and send code_verifier
   authorization: {
-    url: "https://api.login.yahoo.com/oauth2/request_auth",
-    params: {
-      response_type: "code",
-      scope: "openid profile email fspt-r",
-      code_challenge_method: "S256",
-      redirect_uri: process.env.YAHOO_REDIRECT_URI!, // MUST match Yahoo & env
-    },
+  url: "https://api.login.yahoo.com/oauth2/request_auth",
+  params: {
+    response_type: "code",
+    scope: "openid profile email",   // ← temporarily remove fspt-r
+    code_challenge_method: "S256",
+    redirect_uri: process.env.YAHOO_REDIRECT_URI!,
   },
+},
   token: {
     url: "https://api.login.yahoo.com/oauth2/get_token",
     // Some providers require redirect_uri on the token call too — add it explicitly
