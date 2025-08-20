@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 
-import NextAuth from "next-auth";
-import type { AuthOptions } from "next-auth";
+import NextAuth, { type AuthOptions } from "next-auth";
+import type { OAuthConfig } from "next-auth/providers/oauth";
 import type { JWT } from "next-auth/jwt";
 import type { Session, Account } from "next-auth";
 
@@ -62,26 +62,27 @@ async function refreshAccessToken(token: YahooToken): Promise<YahooToken> {
   }
 }
 
-// ---- Yahoo Provider (minimal) ----
-const yahooProvider = {
+// ---- Yahoo Provider (typed) ----
+const yahooProvider: OAuthConfig<YahooProfile> = {
   id: "yahoo",
   name: "Yahoo",
   type: "oauth",
-  // Remove PKCE for now to avoid code_verifier issues while debugging:
+  // keep PKCE off while debugging callback errors; add "pkce" later if needed
   checks: ["state"],
 
   authorization: {
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      scope: "openid", // keep minimal until Yahoo console grants more scopes
+      // minimal scope so Yahoo accepts even if other scopes aren’t granted yet
+      scope: "openid",
       redirect_uri: process.env.YAHOO_REDIRECT_URI!,
     },
   },
 
   token: {
     url: "https://api.login.yahoo.com/oauth2/get_token",
-    // Some providers require redirect_uri at token step too—include it explicitly
+    // include redirect_uri at token step as well
     params: { redirect_uri: process.env.YAHOO_REDIRECT_URI! },
   },
 
@@ -89,9 +90,8 @@ const yahooProvider = {
 
   clientId: process.env.YAHOO_CLIENT_ID!,
   clientSecret: process.env.YAHOO_CLIENT_SECRET!,
-  // Yahoo expects HTTP Basic for token exchange; NextAuth defaults to this.
 
-  profile(profile: YahooProfile) {
+  profile(profile) {
     return {
       id: profile.sub,
       name: profile.name || profile.nickname || "Yahoo User",
@@ -99,18 +99,17 @@ const yahooProvider = {
       image: profile.picture,
     };
   },
-} as const;
+};
 
 // ---- NextAuth config ----
 const authOptions: AuthOptions = {
-  providers: [yahooProvider as any],
+  providers: [yahooProvider], // <-- no `any`
   session: { strategy: "jwt" },
   debug: true,
   callbacks: {
     async jwt({ token, account }) {
       const t = token as YahooToken;
 
-      // Initial sign-in
       if (account) {
         const acc = account as Account & {
           access_token?: string;
