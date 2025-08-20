@@ -3,6 +3,7 @@ import type { OAuthConfig } from "next-auth/providers/oauth"
 import type { JWT } from "next-auth/jwt"
 import type { Session, Account } from "next-auth"
 
+// ---- Types ----
 type YahooProfile = {
   sub: string
   name?: string
@@ -14,10 +15,11 @@ type YahooProfile = {
 type YahooToken = JWT & {
   access_token?: string
   refresh_token?: string
-  expires_at?: number
+  expires_at?: number // epoch seconds
   error?: "RefreshAccessTokenError"
 }
 
+// ---- Helpers ----
 function basicAuth(): string {
   const id = process.env.YAHOO_CLIENT_ID!
   const secret = process.env.YAHOO_CLIENT_SECRET!
@@ -58,16 +60,19 @@ async function refreshAccessToken(token: YahooToken): Promise<YahooToken> {
   }
 }
 
+// ---- Yahoo Provider ----
 const yahooProvider: OAuthConfig<YahooProfile> = {
   id: "yahoo",
   name: "Yahoo",
   type: "oauth",
   authorization: {
+    // NextAuth will append client_id, redirect_uri, state, etc.
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
-      scope: "fspt-r profile email",
       response_type: "code",
-      redirect_uri: process.env.YAHOO_REDIRECT_URI!,
+      // Include OpenID scopes so /userinfo works, plus fantasy read scope
+      scope: "openid profile email fspt-r",
+      // DO NOT set redirect_uri here; NextAuth injects it based on NEXTAUTH_URL
     },
   },
   token: { url: "https://api.login.yahoo.com/oauth2/get_token" },
@@ -84,12 +89,15 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
   },
 }
 
+// ---- NextAuth config ----
 const authOptions: AuthOptions = {
   providers: [yahooProvider],
   session: { strategy: "jwt" },
   callbacks: {
     async jwt({ token, account }) {
       const t = token as YahooToken
+
+      // Initial sign-in
       if (account) {
         const acc = account as Account & {
           access_token?: string
@@ -105,9 +113,14 @@ const authOptions: AuthOptions = {
           }
         }
       }
+
+      // If still valid, keep current token
       if (t.expires_at && Date.now() / 1000 < t.expires_at) return t
+
+      // Otherwise refresh
       return await refreshAccessToken(t)
     },
+
     async session({ session, token }) {
       ;(session as Session & { access_token?: string }).access_token = (token as YahooToken).access_token
       return session
