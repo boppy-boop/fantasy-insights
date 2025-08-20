@@ -3,7 +3,6 @@ import type { OAuthConfig } from "next-auth/providers/oauth"
 import type { JWT } from "next-auth/jwt"
 import type { Session, Account } from "next-auth"
 
-// Yahoo "userinfo" payload shape
 type YahooProfile = {
   sub: string
   name?: string
@@ -12,7 +11,6 @@ type YahooProfile = {
   picture?: string
 }
 
-// JWT we store in callbacks
 type YahooToken = JWT & {
   access_token?: string
   refresh_token?: string
@@ -40,7 +38,7 @@ async function refreshAccessToken(token: YahooToken): Promise<YahooToken> {
       }),
     })
 
-    const refreshed = await res.json() as {
+    const refreshed = (await res.json()) as {
       access_token?: string
       refresh_token?: string
       expires_in?: number
@@ -86,14 +84,12 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
   },
 }
 
-export const authOptions: AuthOptions = {
+const authOptions: AuthOptions = {
   providers: [yahooProvider],
   session: { strategy: "jwt" },
   callbacks: {
     async jwt({ token, account }) {
       const t = token as YahooToken
-
-      // Initial sign-in
       if (account) {
         const acc = account as Account & {
           access_token?: string
@@ -109,11 +105,7 @@ export const authOptions: AuthOptions = {
           }
         }
       }
-
-      // If access token is still valid, return current token
       if (t.expires_at && Date.now() / 1000 < t.expires_at) return t
-
-      // Else refresh
       return await refreshAccessToken(t)
     },
     async session({ session, token }) {
