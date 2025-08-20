@@ -65,14 +65,18 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
   id: "yahoo",
   name: "Yahoo",
   type: "oauth",
- authorization: {
-  url: "https://api.login.yahoo.com/oauth2/request_auth",
-  params: {
-    response_type: "code",
-    scope: "openid profile email fspt-r",
-    redirect_uri: process.env.YAHOO_REDIRECT_URI!, // <-- force exact URI
+  // PKCE is commonly required; NextAuth will add code_challenge and later send code_verifier
+  checks: ["pkce", "state"],
+  authorization: {
+    url: "https://api.login.yahoo.com/oauth2/request_auth",
+    params: {
+      response_type: "code",
+      scope: "openid profile email fspt-r",
+      code_challenge_method: "S256",
+      // force exact redirect to match what you registered
+      redirect_uri: process.env.YAHOO_REDIRECT_URI!,
+    },
   },
-},
   token: { url: "https://api.login.yahoo.com/oauth2/get_token" },
   userinfo: { url: "https://api.login.yahoo.com/openid/v1/userinfo" },
   clientId: process.env.YAHOO_CLIENT_ID!,
@@ -91,6 +95,8 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
 const authOptions: AuthOptions = {
   providers: [yahooProvider],
   session: { strategy: "jwt" },
+  // Turn on debug so we'll see the precise error in Vercel function logs if it fails again
+  debug: true,
   callbacks: {
     async jwt({ token, account }) {
       const t = token as YahooToken
@@ -125,6 +131,7 @@ const authOptions: AuthOptions = {
     },
   },
 }
+
 
 const handler = NextAuth(authOptions)
 export { handler as GET, handler as POST }
