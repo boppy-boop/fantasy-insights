@@ -70,7 +70,7 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      scope: "openid",
+      scope: "openid", // ← Use only "openid" for now
       code_challenge_method: "S256",
       redirect_uri: process.env.YAHOO_REDIRECT_URI!,
     },
@@ -93,10 +93,8 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
       image: profile.picture,
     };
   },
-  idToken: {
-    algorithms: ['ES256'], // <-- Add this line
-  },
 };
+
 // ---- NextAuth config ----
 const authOptions: AuthOptions = {
   providers: [yahooProvider],
