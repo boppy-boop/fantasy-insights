@@ -1,17 +1,6 @@
-import "./globals.css"
-import Providers from "./providers"
+"use client";
+import { SessionProvider } from "next-auth/react";
 
-export const metadata = {
-  title: "Fantasy Insights",
-  description: "League analytics",
-}
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <body>
-        <Providers>{children}</Providers>
-      </body>
-    </html>
-  )
+export default function Providers({ children }: { children: React.ReactNode }) {
+  return <SessionProvider>{children}</SessionProvider>;
 }
