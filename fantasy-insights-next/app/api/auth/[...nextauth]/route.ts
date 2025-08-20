@@ -67,14 +67,22 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
   id: "yahoo",
   name: "Yahoo",
   type: "oauth",
-  checks: ["state"],
+  // MODIFIED: Changed checks to include 'pkce' and 'nonce'
+  checks: ["pkce", "nonce"], 
+
+  clientId: process.env.YAHOO_CLIENT_ID!,
+  clientSecret: process.env.YAHOO_CLIENT_SECRET!,
+  
+  // ADDED: Issuer and Well-Known endpoint for JWT validation
+  issuer: 'https://api.login.yahoo.com',
+  wellKnown: 'https://api.login.yahoo.com/.well-known/openid-configuration',
 
   authorization: {
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      // MODIFIED: Changed scope to explicitly request 'fantasy_content.read'
-      scope: "openid profile fantasy_content.read", 
+      // MODIFIED: Changed scope to 'openid profile email fspt-r' based on community feedback
+      scope: "openid profile email fspt-r", 
     },
   },
 
@@ -83,11 +91,7 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
     // NextAuth will automatically add the correct redirect_uri based on NEXTAUTH_URL
   },
 
-  // MODIFIED: Uncommented the userinfo endpoint
   userinfo: { url: "https://api.login.yahoo.com/openid/v1/userinfo" },
-
-  clientId: process.env.YAHOO_CLIENT_ID!,
-  clientSecret: process.env.YAHOO_CLIENT_SECRET!,
 
   profile(profile) {
     // NextAuth will pass claims from the ID token as `profile`
@@ -97,6 +101,11 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
       email: profile.email,
       image: profile.picture,
     };
+  },
+  // ADDED: Client configuration for JWT signing algorithms
+  client: {
+    authorization_signed_response_alg: 'ES256',
+    id_token_signed_response_alg: 'ES256',
   },
 };
 
