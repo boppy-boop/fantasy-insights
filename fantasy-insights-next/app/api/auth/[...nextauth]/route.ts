@@ -67,31 +67,30 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
   id: "yahoo",
   name: "Yahoo",
   type: "oauth",
-  // keep PKCE off while debugging callback errors; add "pkce" later if needed
   checks: ["state"],
 
   authorization: {
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      // minimal scope so Yahoo accepts even if other scopes aren’t granted yet
-      scope: "openid",
+      scope: "openid",               // keep minimal for now
       redirect_uri: process.env.YAHOO_REDIRECT_URI!,
     },
   },
 
   token: {
     url: "https://api.login.yahoo.com/oauth2/get_token",
-    // include redirect_uri at token step as well
     params: { redirect_uri: process.env.YAHOO_REDIRECT_URI! },
   },
 
-  userinfo: { url: "https://api.login.yahoo.com/openid/v1/userinfo" },
+  // ❌ REMOVE this line while using only `openid`
+  // userinfo: { url: "https://api.login.yahoo.com/openid/v1/userinfo" },
 
   clientId: process.env.YAHOO_CLIENT_ID!,
   clientSecret: process.env.YAHOO_CLIENT_SECRET!,
 
   profile(profile) {
+    // NextAuth will pass claims from the ID token as `profile`
     return {
       id: profile.sub,
       name: profile.name || profile.nickname || "Yahoo User",
