@@ -1,5 +1,7 @@
-import NextAuth, { type AuthOptions } from "next-auth";
-import type { OAuthConfig } from "next-auth/providers/oauth";
+export const runtime = "nodejs";
+
+import NextAuth from "next-auth";
+import type { AuthOptions } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import type { Session, Account } from "next-auth";
 
@@ -60,32 +62,36 @@ async function refreshAccessToken(token: YahooToken): Promise<YahooToken> {
   }
 }
 
-// ---- Yahoo Provider ----
-const yahooProvider: OAuthConfig<YahooProfile> = {
+// ---- Yahoo Provider (minimal) ----
+const yahooProvider = {
   id: "yahoo",
   name: "Yahoo",
   type: "oauth",
-  checks: ["pkce", "state"],
+  // Remove PKCE for now to avoid code_verifier issues while debugging:
+  checks: ["state"],
+
   authorization: {
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      scope: "openid", // ← Use only "openid" for now
-      code_challenge_method: "S256",
+      scope: "openid", // keep minimal until Yahoo console grants more scopes
       redirect_uri: process.env.YAHOO_REDIRECT_URI!,
     },
   },
+
   token: {
     url: "https://api.login.yahoo.com/oauth2/get_token",
-    params: {
-      redirect_uri: process.env.YAHOO_REDIRECT_URI!,
-    },
+    // Some providers require redirect_uri at token step too—include it explicitly
+    params: { redirect_uri: process.env.YAHOO_REDIRECT_URI! },
   },
+
   userinfo: { url: "https://api.login.yahoo.com/openid/v1/userinfo" },
+
   clientId: process.env.YAHOO_CLIENT_ID!,
   clientSecret: process.env.YAHOO_CLIENT_SECRET!,
-  client: { token_endpoint_auth_method: "client_secret_basic" },
-  profile(profile) {
+  // Yahoo expects HTTP Basic for token exchange; NextAuth defaults to this.
+
+  profile(profile: YahooProfile) {
     return {
       id: profile.sub,
       name: profile.name || profile.nickname || "Yahoo User",
@@ -93,11 +99,11 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
       image: profile.picture,
     };
   },
-};
+} as const;
 
 // ---- NextAuth config ----
 const authOptions: AuthOptions = {
-  providers: [yahooProvider],
+  providers: [yahooProvider as any],
   session: { strategy: "jwt" },
   debug: true,
   callbacks: {
@@ -121,10 +127,8 @@ const authOptions: AuthOptions = {
         }
       }
 
-      // If still valid, keep current token
       if (t.expires_at && Date.now() / 1000 < t.expires_at) return t;
 
-      // Otherwise refresh
       return await refreshAccessToken(t);
     },
 
