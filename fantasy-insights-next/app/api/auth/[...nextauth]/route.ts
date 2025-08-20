@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import NextAuth, { type AuthOptions } from "next-auth";
 import type { OAuthConfig } from "next-auth/providers/oauth";
 import type { JWT } from "next-auth/jwt";
@@ -61,39 +63,48 @@ async function refreshAccessToken(token: YahooToken): Promise<YahooToken> {
 }
 
 // ---- Yahoo Provider ----
-const yahooProvider: OAuthConfig<YahooProfile> = {
-  id: "yahoo",
-  name: "Yahoo",
-  type: "oauth",
-  checks: ["pkce", "state"],
-  authorization: {
-    url: "https://api.login.yahoo.com/oauth2/request_auth",
-    params: {
-      response_type: "code",
-      scope: "openid", // ← Use only "openid" for now
-      code_challenge_method: "S256",
-      redirect_uri: process.env.YAHOO_REDIRECT_URI!,
+const yahooProvider =
+  {
+    id: "yahoo",
+    name: "Yahoo",
+    type: "oauth",
+    checks: ["pkce", "state"],
+
+    authorization: {
+      url: "https://api.login.yahoo.com/oauth2/request_auth",
+      params: {
+        response_type: "code",
+        // While fixing invalid_scope, keep this minimal:
+        // later you can use: "openid profile email fspt-r"
+        scope: "openid",
+        code_challenge_method: "S256",
+        redirect_uri: process.env.YAHOO_REDIRECT_URI!,
+      },
     },
-  },
-  token: {
-    url: "https://api.login.yahoo.com/oauth2/get_token",
-    params: {
-      redirect_uri: process.env.YAHOO_REDIRECT_URI!,
+
+    token: {
+      url: "https://api.login.yahoo.com/oauth2/get_token",
+      params: { redirect_uri: process.env.YAHOO_REDIRECT_URI! },
     },
-  },
-  userinfo: { url: "https://api.login.yahoo.com/openid/v1/userinfo" },
-  clientId: process.env.YAHOO_CLIENT_ID!,
-  clientSecret: process.env.YAHOO_CLIENT_SECRET!,
-  client: { token_endpoint_auth_method: "client_secret_basic" },
-  profile(profile) {
-    return {
-      id: profile.sub,
-      name: profile.name || profile.nickname || "Yahoo User",
-      email: profile.email,
-      image: profile.picture,
-    };
-  },
-};
+
+    userinfo: { url: "https://api.login.yahoo.com/openid/v1/userinfo" },
+
+    clientId: process.env.YAHOO_CLIENT_ID!,
+    clientSecret: process.env.YAHOO_CLIENT_SECRET!,
+    client: { token_endpoint_auth_method: "client_secret_basic" },
+
+    profile(profile: YahooProfile) {
+      return {
+        id: profile.sub,
+        name: profile.name || profile.nickname || "Yahoo User",
+        email: profile.email,
+        image: profile.picture,
+      };
+    },
+
+    // Not used by NextAuth at runtime, but safe to keep for clarity
+    idToken: { algorithms: ["ES256"] },
+  } as OAuthConfig<YahooProfile> & { idToken: { algorithms: string[] } };
 
 // ---- NextAuth config ----
 const authOptions: AuthOptions = {
@@ -104,7 +115,6 @@ const authOptions: AuthOptions = {
     async jwt({ token, account }) {
       const t = token as YahooToken;
 
-      // Initial sign-in
       if (account) {
         const acc = account as Account & {
           access_token?: string;
@@ -121,19 +131,10 @@ const authOptions: AuthOptions = {
         }
       }
 
-      // If still valid, keep current token
       if (t.expires_at && Date.now() / 1000 < t.expires_at) return t;
 
-      // Otherwise refresh
       return await refreshAccessToken(t);
     },
 
     async session({ session, token }) {
-      (session as Session & { access_token?: string }).access_token = (token as YahooToken).access_token;
-      return session;
-    },
-  },
-};
-
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
+      (session as Session & { access_token_
