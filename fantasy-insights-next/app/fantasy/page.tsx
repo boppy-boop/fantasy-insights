@@ -1,125 +1,99 @@
 "use client";
+import { useEffect, useState } from "react";
 
-import React, { useState } from "react";
-import Link from "next/link";
-import { useSession, signIn } from "next-auth/react";
-import AuthButton from "../../components/AuthButton";
+interface LeagueSummary {
+  leagueKey: string;
+  name: string;
+  season: string;
+}
 
-type League = { id: string; name: string; season?: string };
-type LeaguesOK = { leagues: League[] };
-
-export default function FantasyPage() {
-  const { status } = useSession();
-  const [loading, setLoading] = useState(false);
-  const [leagues, setLeagues] = useState<League[]>([]);
+export default function Fantasy2025() {
+  const [leagues, setLeagues] = useState<LeagueSummary[] | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadLeagues(): Promise<void> {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await fetch("/api/yahoo/leagues", { cache: "no-store" });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Leagues request failed (${res.status}): ${text}`);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/yahoo/leagues", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setLeagues(data?.leagues || []);
+      } catch (e: any) {
+        setError(e.message || "Failed to load leagues");
+      } finally {
+        setLoading(false);
       }
-      const json = (await res.json()) as LeaguesOK;
-      if (!json || !Array.isArray(json.leagues)) {
-        throw new Error("Unexpected leagues response shape.");
-      }
-      setLeagues(json.leagues);
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Unknown error while loading leagues."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
+    })();
+  }, []);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-zinc-100">
-      <header className="border-b border-zinc-800 bg-zinc-950/70 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <Link href="/" className="text-zinc-300 hover:text-white">
-            ← Home
-          </Link>
-          <div className="font-semibold">
-            Rex Grossman Memorial Championship Series
-          </div>
-          <AuthButton />
+    <div className="space-y-8">
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight">2025 Season</h1>
+          <p className="text-sm text-neutral-600">Live league overview, auto-generated storylines, and weekly insights.</p>
         </div>
-      </header>
+      </div>
 
-      <section className="mx-auto max-w-5xl px-6 py-10">
-        <h2 className="text-2xl md:text-3xl font-bold">League Insights</h2>
-        <p className="mt-2 text-zinc-400">
-          Load your Yahoo leagues and jump into analytics.
-        </p>
-
-        {status !== "authenticated" ? (
-          <div className="mt-8">
-            <button
-              onClick={() => signIn("yahoo")}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-white shadow hover:bg-indigo-500"
-            >
-              Sign in with Yahoo
-            </button>
+      <section className="grid gap-6 lg:grid-cols-3">
+        {/* Left column: Headlines & Insights */}
+        <div className="space-y-6 lg:col-span-2">
+          <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-bold tracking-tight">This Week’s Storylines</h2>
+            <p className="mt-2 text-sm text-neutral-600">We’ll generate notes from live data (records, streaks, points for/against, and injuries). Configure in <code>lib/insights.ts</code>.</p>
+            <ul className="mt-3 list-disc pl-5 text-sm text-neutral-800">
+              <li>Power surge: Top-3 scoring teams trending up 2 weeks straight.</li>
+              <li>Upset alert: A bottom-half team projects as a slight favorite.</li>
+              <li>Injury watch: Roster volatility flagged for two contenders.</li>
+            </ul>
           </div>
-        ) : (
-          <>
-            <div className="mt-8 flex items-center gap-3">
-              <button
-                onClick={loadLeagues}
-                disabled={loading}
-                className="rounded-xl bg-violet-600 px-4 py-2 text-white shadow hover:bg-violet-500 disabled:opacity-60"
-              >
-                {loading ? "Loading…" : "Load Yahoo Leagues"}
-              </button>
 
-              {/* Debug viewer (uses Link to satisfy lint) */}
-              <Link
-                href="/api/auth/session"
-                target="_blank"
-                className="rounded-xl border border-zinc-700 px-4 py-2 text-zinc-300 hover:bg-zinc-800"
-              >
-                View session JSON
-              </Link>
-            </div>
-
-            {error && (
-              <div className="mt-6 rounded-xl border border-red-700 bg-red-950/40 p-4 text-red-200">
-                {error}
+          <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-bold tracking-tight">Live Matchups</h2>
+            <p className="mt-2 text-sm text-neutral-600">Hook to Yahoo matchups endpoint and summarize with your rules/AI.</p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-neutral-200 p-4">
+                <p className="text-xs uppercase tracking-widest text-neutral-500">Matchup</p>
+                <p className="font-semibold">Team A vs Team B</p>
+                <p className="text-sm text-neutral-600">Projected: 127.4 – 121.9</p>
               </div>
-            )}
-
-            <div className="mt-8 grid gap-4">
-              {leagues.length === 0 && !loading && !error && (
-                <div className="text-zinc-400">No leagues loaded yet.</div>
-              )}
-              {leagues.map((lg) => (
-                <div
-                  key={lg.id}
-                  className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 hover:border-violet-600/50"
-                >
-                  <div className="text-lg font-semibold">{lg.name}</div>
-                  <div className="text-zinc-400 text-sm">
-                    Season: {lg.season ?? "—"} &middot; ID: {lg.id}
-                  </div>
-                  <div className="mt-3">
-                    <Link
-                      href={`/fantasy/league/${encodeURIComponent(lg.id)}`}
-                      className="text-violet-300 hover:text-violet-200"
-                    >
-                      Open analytics →
-                    </Link>
-                  </div>
-                </div>
-              ))}
+              <div className="rounded-xl border border-neutral-200 p-4">
+                <p className="text-xs uppercase tracking-widest text-neutral-500">Matchup</p>
+                <p className="font-semibold">Team C vs Team D</p>
+                <p className="text-sm text-neutral-600">Projected: 118.3 – 116.2</p>
+              </div>
             </div>
-          </>
-        )}
+          </div>
+        </div>
+
+        {/* Right column: Leagues list */}
+        <aside className="space-y-4">
+          <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-bold tracking-tight">Your Yahoo Leagues</h2>
+            {loading && <p className="mt-2 text-sm text-neutral-600">Loading…</p>}
+            {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+            {!loading && !error && (
+              <ul className="mt-2 divide-y">
+                {(leagues || []).map((l) => (
+                  <li key={l.leagueKey} className="py-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{l.name}</p>
+                        <p className="text-xs text-neutral-600">Season {l.season}</p>
+                      </div>
+                      <button className="rounded-lg border border-neutral-200 px-3 py-1 text-xs font-semibold">Open</button>
+                    </div>
+                  </li>
+                ))}
+                {(leagues || []).length === 0 && (
+                  <li className="py-2 text-sm text-neutral-600">No leagues found yet.</li>
+                )}
+              </ul>
+            )}
+          </div>
+        </aside>
       </section>
-    </main>
+    </div>
   );
 }
