@@ -72,7 +72,7 @@ const yahooProvider = ({
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      scope: "openid email profile", // <-- OpenID Connect scopes
+      scope: "openid email profile",
       code_challenge_method: "S256",
       redirect_uri: process.env.YAHOO_REDIRECT_URI!,
     },
@@ -95,7 +95,7 @@ const yahooProvider = ({
     };
   },
   idToken: {
-    algorithms: ['ES256'],
+    algorithms: ['ES256'], // <-- This line is required!
   },
 } as unknown) as OAuthConfig<YahooProfile> & { idToken: { algorithms: string[] } };
 
