@@ -2,8 +2,8 @@
 
 import { useSession, signIn, signOut } from "next-auth/react";
 
-export default function AuthButton(): JSX.Element {
-  const { status } = useSession();
+export default function AuthButton() {
+  const { data: session, status } = useSession();
 
   if (status === "loading") {
     return (
@@ -19,12 +19,17 @@ export default function AuthButton(): JSX.Element {
 
   if (status === "authenticated") {
     return (
-      <button
-        onClick={() => signOut()}
-        className="rounded-xl bg-zinc-800 px-4 py-2 text-zinc-200 hover:bg-zinc-700"
-      >
-        Sign out
-      </button>
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-zinc-300">
+          Signed in{session?.user?.name ? ` as ${session.user.name}` : ""}
+        </span>
+        <button
+          onClick={() => signOut({ callbackUrl: "/" })}
+          className="rounded-xl bg-zinc-200 px-4 py-2 text-zinc-900 hover:bg-zinc-700/10"
+        >
+          Sign out
+        </button>
+      </div>
     );
   }
 
