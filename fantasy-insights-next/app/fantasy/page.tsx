@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSession, signIn } from "next-auth/react";
-import AuthButton from "../components/AuthButton";
+import AuthButton from "../../components/AuthButton";
 
 type League = {
   id: string;
@@ -10,10 +10,11 @@ type League = {
   season?: string;
 };
 
-type LeaguesOk = { leagues: League[] };
+type LeaguesOK = { leagues: League[] };
 
-export default function FantasyPage(): JSX.Element {
+export default function FantasyPage() {
   const { status } = useSession();
+
   const [loading, setLoading] = useState<boolean>(false);
   const [leagues, setLeagues] = useState<League[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +35,7 @@ export default function FantasyPage(): JSX.Element {
         throw new Error(`Leagues request failed (${res.status}): ${body || res.statusText}`);
       }
 
-      const json = (await res.json()) as LeaguesOk;
+      const json = (await res.json()) as LeaguesOK;
 
       if (!json || !Array.isArray(json.leagues)) {
         throw new Error("Unexpected leagues response shape.");
@@ -59,77 +60,50 @@ export default function FantasyPage(): JSX.Element {
         </div>
       </header>
 
-      <section className="mx-auto max-w-6xl px-6 py-10">
-        {status === "loading" && (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
-            <p className="text-zinc-300">Checking your session…</p>
-          </div>
-        )}
-
-        {status === "unauthenticated" && (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
-            <h2 className="mb-2 text-2xl font-bold">Sign in required</h2>
-            <p className="mb-4 text-zinc-300">
-              Please sign in with Yahoo to load your leagues.
-            </p>
+      <section className="mx-auto max-w-6xl px-6 py-8">
+        {status !== "authenticated" ? (
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-6 text-zinc-300">
+            <p className="mb-4">Sign in with Yahoo to load your leagues.</p>
             <button
               onClick={() => signIn("yahoo")}
-              className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3 font-medium text-white shadow-lg shadow-indigo-900/30 transition hover:scale-[1.02]"
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-500"
             >
-              Sign in with Yahoo
+              Sign in
             </button>
           </div>
-        )}
-
-        {status === "authenticated" && (
-          <div className="space-y-8">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold">Your Yahoo Leagues</h2>
-                  <p className="text-zinc-400">
-                    Load your leagues and jump into your insights dashboard.
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={loadLeagues}
-                    disabled={loading}
-                    className="rounded-xl bg-indigo-600 px-5 py-3 font-medium text-white shadow transition hover:bg-indigo-500 disabled:opacity-60"
-                  >
-                    {loading ? "Loading…" : "Load Yahoo Leagues"}
-                  </button>
-                </div>
-              </div>
-
-              {error && (
-                <p className="mt-4 rounded-lg border border-red-900/50 bg-red-950/40 p-3 text-sm text-red-300">
-                  {error}
-                </p>
-              )}
-
-              {leagues.length > 0 && !error && (
-                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {leagues.map((lg) => (
-                    <div
-                      key={lg.id}
-                      className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-5 shadow-sm transition hover:shadow-lg hover:shadow-purple-900/20"
-                    >
-                      <div className="text-sm text-zinc-400">Season {lg.season ?? "—"}</div>
-                      <div className="mt-1 text-lg font-semibold">{lg.name}</div>
-                      <div className="mt-2 text-xs text-zinc-500">League ID: {lg.id}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {!loading && !error && leagues.length === 0 && (
-                <p className="mt-4 text-sm text-zinc-400">
-                  No leagues loaded yet. Click{" "}
-                  <span className="font-medium text-zinc-200">Load Yahoo Leagues</span>.
-                </p>
-              )}
+        ) : (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={loadLeagues}
+                disabled={loading}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-500 disabled:opacity-60"
+              >
+                {loading ? "Loading…" : "Load Yahoo Leagues"}
+              </button>
+              {error && <span className="text-sm text-red-400">{error}</span>}
             </div>
+
+            {leagues.length > 0 && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {leagues.map((lg) => (
+                  <div
+                    key={lg.id}
+                    className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4"
+                  >
+                    <h3 className="text-lg font-semibold text-zinc-100">{lg.name}</h3>
+                    {lg.season && (
+                      <p className="text-sm text-zinc-400">Season: {lg.season}</p>
+                    )}
+                    <p className="mt-1 text-xs text-zinc-500">League ID: {lg.id}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!loading && !error && leagues.length === 0 && (
+              <p className="text-zinc-400">No leagues loaded yet.</p>
+            )}
           </div>
         )}
       </section>
