@@ -63,38 +63,31 @@ async function refreshAccessToken(token: YahooToken): Promise<YahooToken> {
 }
 
 // ---- Yahoo Provider (typed) ----
-const yahooProvider: OAuthConfig<YahooProfile> = {
+const yahooProvider = {
   id: "yahoo",
   name: "Yahoo",
   type: "oauth",
-  // MODIFIED: Changed checks to include 'pkce' and 'nonce'
-  checks: ["pkce", "nonce"], 
-
-  clientId: process.env.YAHOO_CLIENT_ID!,
-  clientSecret: process.env.YAHOO_CLIENT_SECRET!,
-  
-  // ADDED: Issuer and Well-Known endpoint for JWT validation
-  issuer: 'https://api.login.yahoo.com',
-  wellKnown: 'https://api.login.yahoo.com/.well-known/openid-configuration',
-
+  checks: ["pkce", "state"],
   authorization: {
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      // MODIFIED: Changed scope to 'openid email' for testing a more basic set
-      scope: "openid email", 
+      scope: "openid email",
+      code_challenge_method: "S256",
+      redirect_uri: process.env.YAHOO_REDIRECT_URI!,
     },
   },
-
   token: {
     url: "https://api.login.yahoo.com/oauth2/get_token",
-    // NextAuth will automatically add the correct redirect_uri based on NEXTAUTH_URL
+    params: {
+      redirect_uri: process.env.YAHOO_REDIRECT_URI!,
+    },
   },
-
   userinfo: { url: "https://api.login.yahoo.com/openid/v1/userinfo" },
-
+  clientId: process.env.YAHOO_CLIENT_ID!,
+  clientSecret: process.env.YAHOO_CLIENT_SECRET!,
+  client: { token_endpoint_auth_method: "client_secret_basic" },
   profile(profile) {
-    // NextAuth will pass claims from the ID token as `profile`
     return {
       id: profile.sub,
       name: profile.name || profile.nickname || "Yahoo User",
@@ -102,12 +95,10 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
       image: profile.picture,
     };
   },
-  // ADDED: Client configuration for JWT signing algorithms
-  client: {
-    authorization_signed_response_alg: 'ES256',
-    id_token_signed_response_alg: 'ES256',
+  idToken: {
+    algorithms: ['ES256'],
   },
-};
+} as OAuthConfig<YahooProfile> & { idToken: { algorithms: string[] } };
 
 // ---- NextAuth config ----
 const authOptions: AuthOptions = {
