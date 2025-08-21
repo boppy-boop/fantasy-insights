@@ -67,7 +67,6 @@ const authOptions: AuthOptions = {
   session: { strategy: "jwt" },
   debug: true,
   // Helpful on Vercel behind a proxy
-  trustHost: true,
 };
 
 const handler = NextAuth(authOptions);
