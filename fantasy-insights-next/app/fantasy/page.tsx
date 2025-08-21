@@ -1,112 +1,96 @@
 "use client";
 
-import { useState } from "react";
-import { useSession, signIn } from "next-auth/react";
-import AuthButton from "../../components/AuthButton";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import AuthButton from "../../components/AuthButton"; // <- path is from /app to /components
 
-type League = {
-  id: string;
-  name: string;
-  season?: string;
-};
-
-type LeaguesOK = { leagues: League[] };
-
-export default function FantasyPage() {
-  const { status } = useSession();
-
-  const [loading, setLoading] = useState<boolean>(false);
-  const [leagues, setLeagues] = useState<League[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadLeagues = async (): Promise<void> => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const res = await fetch("/api/yahoo/leagues", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-      });
-
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`Leagues request failed (${res.status}): ${body || res.statusText}`);
-      }
-
-      const json = (await res.json()) as LeaguesOK;
-
-      if (!json || !Array.isArray(json.leagues)) {
-        throw new Error("Unexpected leagues response shape.");
-      }
-
-      setLeagues(json.leagues);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error while loading leagues.");
-    } finally {
-      setLoading(false);
-    }
-  };
+export default function Home() {
+  const { data: session, status } = useSession();
+  const firstName =
+    (session?.user?.name || session?.user?.email || "Coach").split(" ")[0];
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-black text-zinc-100">
-      <header className="border-b border-zinc-800 bg-zinc-950/60 backdrop-blur">
+    <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-zinc-100">
+      {/* Top bar */}
+      <header className="border-b border-zinc-800 bg-zinc-950/70 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
           <h1 className="text-xl font-semibold tracking-tight">
-            Rex Grossman Memorial Championship Series
+            <span className="bg-gradient-to-r from-violet-400 to-emerald-400 bg-clip-text text-transparent">
+              Rex Grossman Memorial Championship Series
+            </span>
           </h1>
           <AuthButton />
         </div>
       </header>
 
-      <section className="mx-auto max-w-6xl px-6 py-8">
-        {status !== "authenticated" ? (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-6 text-zinc-300">
-            <p className="mb-4">Sign in with Yahoo to load your leagues.</p>
-            <button
-              onClick={() => signIn("yahoo")}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-500"
-            >
-              Sign in
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={loadLeagues}
-                disabled={loading}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-500 disabled:opacity-60"
+      {/* Hero */}
+      <section className="mx-auto max-w-5xl px-6 py-16 text-center">
+        {status === "authenticated" ? (
+          <>
+            <p className="text-zinc-300 text-lg">
+              Welcome back,{" "}
+              <span className="font-semibold text-white">{firstName}</span> 👋
+            </p>
+            <h2 className="mt-3 text-3xl md:text-5xl font-extrabold tracking-tight">
+              Your weekly fantasy edge starts here.
+            </h2>
+
+            {/* Action cards */}
+            <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <Link
+                href="/fantasy"
+                className="group rounded-2xl border border-violet-700/40 bg-zinc-900/60 p-6 text-left shadow-lg transition hover:-translate-y-0.5 hover:border-violet-500 hover:shadow-violet-900/30"
               >
-                {loading ? "Loading…" : "Load Yahoo Leagues"}
-              </button>
-              {error && <span className="text-sm text-red-400">{error}</span>}
+                <div className="text-sm text-violet-300">Dashboard</div>
+                <div className="mt-2 text-2xl font-semibold">
+                  Open League Insights
+                </div>
+                <p className="mt-2 text-zinc-400">
+                  Power rankings, steals & overpays, strength of schedule, and
+                  more.
+                </p>
+                <div className="mt-4 text-violet-300 group-hover:translate-x-1 transition">
+                  Enter →
+                </div>
+              </Link>
+
+              {/* Handy debug tile; safe to remove later */}
+              <a
+                href="/api/auth/session"
+                className="group rounded-2xl border border-emerald-700/40 bg-zinc-900/60 p-6 text-left shadow-lg transition hover:-translate-y-0.5 hover:border-emerald-500 hover:shadow-emerald-900/30"
+              >
+                <div className="text-sm text-emerald-300">Quick Check</div>
+                <div className="mt-2 text-2xl font-semibold">
+                  View Your Session
+                </div>
+                <p className="mt-2 text-zinc-400">
+                  Inspect session/token if something looks off.
+                </p>
+                <div className="mt-4 text-emerald-300 group-hover:translate-x-1 transition">
+                  Open →
+                </div>
+              </a>
             </div>
-
-            {leagues.length > 0 && (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {leagues.map((lg) => (
-                  <div
-                    key={lg.id}
-                    className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4"
-                  >
-                    <h3 className="text-lg font-semibold text-zinc-100">{lg.name}</h3>
-                    {lg.season && (
-                      <p className="text-sm text-zinc-400">Season: {lg.season}</p>
-                    )}
-                    <p className="mt-1 text-xs text-zinc-500">League ID: {lg.id}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {!loading && !error && leagues.length === 0 && (
-              <p className="text-zinc-400">No leagues loaded yet.</p>
-            )}
-          </div>
+          </>
+        ) : (
+          <>
+            <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight">
+              Rex Grossman Memorial Championship Series
+            </h2>
+            <p className="mt-4 text-zinc-300">
+              Sign in with Yahoo to load your league data and personalized
+              insights.
+            </p>
+            <div className="mt-8 flex justify-center">
+              <AuthButton />
+            </div>
+          </>
         )}
       </section>
+
+      <footer className="py-8 text-center text-sm text-zinc-500">
+        © {new Date().getFullYear()} RG Championship Series
+      </footer>
     </main>
   );
 }

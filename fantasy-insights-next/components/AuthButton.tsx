@@ -1,9 +1,9 @@
+// components/AuthButton.tsx
 "use client";
-
 import { useSession, signIn, signOut } from "next-auth/react";
 
 export default function AuthButton() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
 
   if (status === "loading") {
     return (
@@ -19,17 +19,12 @@ export default function AuthButton() {
 
   if (status === "authenticated") {
     return (
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-zinc-300">
-          Signed in{session?.user?.name ? ` as ${session.user.name}` : ""}
-        </span>
-        <button
-          onClick={() => signOut({ callbackUrl: "/" })}
-          className="rounded-xl bg-zinc-200 px-4 py-2 text-zinc-900 hover:bg-zinc-700/10"
-        >
-          Sign out
-        </button>
-      </div>
+      <button
+        onClick={() => signOut()}
+        className="rounded-xl bg-zinc-800 px-4 py-2 text-zinc-200 hover:bg-zinc-700"
+      >
+        Sign out
+      </button>
     );
   }
 
