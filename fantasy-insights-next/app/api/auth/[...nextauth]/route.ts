@@ -1,37 +1,36 @@
-import NextAuth, { type NextAuthOptions } from "next-auth";
+import NextAuth, { type AuthOptions } from "next-auth";
 import type { OAuthConfig } from "next-auth/providers/oauth";
-import type { Account, DefaultSession } from "next-auth";
-import type { JWT } from "next-auth/jwt";
 
-/** Shape of Yahoo's OpenID userinfo response we use */
+// Yahoo OpenID profile shape
 type YahooProfile = {
   sub: string;
-  email?: string;
   name?: string;
   nickname?: string;
+  email?: string;
   picture?: string;
 };
 
-/** Yahoo provider with explicit redirect_uri and minimal scope */
+// ---- Yahoo provider (ES256 + explicit redirect_uri) ----
 const yahooProvider: OAuthConfig<YahooProfile> = {
   id: "yahoo",
   name: "Yahoo",
   type: "oauth",
-  checks: ["pkce", "state"],
+  wellKnown: "https://api.login.yahoo.com/.well-known/openid-configuration",
 
+  // Ask only for stable, OIDC scopes you enabled in the Yahoo app
   authorization: {
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      scope: "openid", // keep minimal while stabilizing
+      scope: "openid email profile", // safe if you enabled Email + Profile in the app
       code_challenge_method: "S256",
-      redirect_uri: process.env.YAHOO_REDIRECT_URI!, // must match Yahoo console exactly
+      redirect_uri: process.env.YAHOO_REDIRECT_URI!, // force exact prod URL
     },
   },
 
   token: {
     url: "https://api.login.yahoo.com/oauth2/get_token",
-    // include redirect_uri in token exchange to avoid provider rejections
+    // include redirect_uri in the token request as some providers require it
     params: { redirect_uri: process.env.YAHOO_REDIRECT_URI! },
   },
 
@@ -39,43 +38,33 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
 
   clientId: process.env.YAHOO_CLIENT_ID!,
   clientSecret: process.env.YAHOO_CLIENT_SECRET!,
-  client: { token_endpoint_auth_method: "client_secret_basic" },
 
-  profile(p) {
+  // ✅ Yahoo uses ES256 for ID tokens. Tell NextAuth to accept it.
+  client: {
+    id_token_signed_response_alg: "ES256",
+    authorization_signed_response_alg: "ES256",
+  },
+
+  // Optional: explicit checks
+  checks: ["pkce", "state"],
+
+  profile(profile) {
     return {
-      id: p.sub,
-      name: p.name ?? p.nickname ?? "Yahoo User",
-      email: p.email,
-      image: p.picture,
+      id: profile.sub,
+      name: profile.name || profile.nickname || "Yahoo User",
+      email: profile.email,
+      image: profile.picture,
     };
   },
 };
 
-/** NextAuth options (not exported — only GET/POST are exported for App Router) */
-const options: NextAuthOptions = {
+const authOptions: AuthOptions = {
   providers: [yahooProvider],
   session: { strategy: "jwt" },
   debug: true,
-
-  callbacks: {
-    async jwt({ token, account }) {
-      // Persist access_token on first sign-in
-      if (account) {
-        const acc = account as Account & { access_token?: string };
-        if (acc.access_token) token.access_token = acc.access_token;
-      }
-      return token;
-    },
-
-    async session({ session, token }) {
-      // Expose access_token in the session (typed safely)
-      (session as DefaultSession & { access_token?: string }).access_token = (token as JWT & {
-        access_token?: string;
-      }).access_token;
-      return session;
-    },
-  },
+  // Helps on Vercel so host/URL inference is trusted behind the proxy
+  trustHost: true,
 };
 
-const handler = NextAuth(options);
+const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
