@@ -1,6 +1,5 @@
 // lib/auth.ts
-import type { AuthOptions, Session, Account } from "next-auth";
-import type { JWT } from "next-auth/jwt";
+import type { AuthOptions } from "next-auth";
 import type { OAuthConfig } from "next-auth/providers/oauth";
 
 type YahooProfile = {
@@ -11,26 +10,19 @@ type YahooProfile = {
   picture?: string;
 };
 
-type YahooToken = JWT & {
-  access_token?: string;
-  refresh_token?: string;
-  expires_at?: number; // epoch seconds
-  error?: "RefreshAccessTokenError";
-};
-
-function basicAuthHeader(): string {
+function basicAuth(): string {
   const id = process.env.YAHOO_CLIENT_ID!;
   const secret = process.env.YAHOO_CLIENT_SECRET!;
-  return `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`;
+  return Buffer.from(`${id}:${secret}`).toString("base64");
 }
 
-async function refreshAccessToken(token: YahooToken): Promise<YahooToken> {
+async function refreshAccessToken(token: any) {
   try {
     const res = await fetch("https://api.login.yahoo.com/oauth2/get_token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: basicAuthHeader(),
+        Authorization: `Basic ${basicAuth()}`,
       },
       body: new URLSearchParams({
         grant_type: "refresh_token",
@@ -38,24 +30,18 @@ async function refreshAccessToken(token: YahooToken): Promise<YahooToken> {
       }),
     });
 
-    const refreshed: {
-      access_token?: string;
-      refresh_token?: string;
-      expires_in?: number;
-      error?: unknown;
-    } = await res.json();
+    const refreshed = await res.json();
 
     if (!res.ok || !refreshed.access_token) throw refreshed;
 
     return {
       ...token,
       access_token: refreshed.access_token,
-      refresh_token: refreshed.refresh_token ?? token.refresh_token,
       expires_at: Math.floor(Date.now() / 1000) + (refreshed.expires_in ?? 3600),
-      error: undefined,
+      refresh_token: refreshed.refresh_token ?? token.refresh_token,
     };
   } catch {
-    return { ...token, error: "RefreshAccessTokenError" };
+    return { ...token, error: "RefreshAccessTokenError" as const };
   }
 }
 
@@ -63,17 +49,16 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
   id: "yahoo",
   name: "Yahoo",
   type: "oauth",
-  // Use Yahoo OIDC discovery
   wellKnown: "https://api.login.yahoo.com/.well-known/openid-configuration",
 
-  // IMPORTANT: request Fantasy Sports read scope so Yahoo issues an API token
   authorization: {
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      scope: "openid email profile fspt-r",
+      // ⬇️ use env, so you can switch between "openid" and "openid fspt-r ..." in Vercel
+      scope: process.env.YAHOO_SCOPE || "openid email profile",
       code_challenge_method: "S256",
-      redirect_uri: process.env.YAHOO_REDIRECT_URI!, // EXACT match to Yahoo app console
+      redirect_uri: process.env.YAHOO_REDIRECT_URI!,
     },
   },
 
@@ -87,22 +72,20 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
   clientId: process.env.YAHOO_CLIENT_ID!,
   clientSecret: process.env.YAHOO_CLIENT_SECRET!,
 
-  // Yahoo signs ID tokens with ES256
   client: {
     token_endpoint_auth_method: "client_secret_basic",
     id_token_signed_response_alg: "ES256",
     authorization_signed_response_alg: "ES256",
   },
 
-  // We use pkce + state (nonce handled by openid-client for id_token validation)
-  checks: ["pkce", "state"],
+  checks: ["pkce", "state", "nonce"],
 
-  profile(profile) {
+  profile(p) {
     return {
-      id: profile.sub,
-      name: profile.name || profile.nickname || "Yahoo User",
-      email: profile.email,
-      image: profile.picture,
+      id: p.sub,
+      name: p.name || p.nickname || "Yahoo User",
+      email: p.email,
+      image: p.picture,
     };
   },
 };
@@ -114,36 +97,25 @@ export const authOptions: AuthOptions = {
 
   callbacks: {
     async jwt({ token, account }) {
-      const t = token as YahooToken;
-
       // Initial sign-in: stash tokens from Yahoo
       if (account) {
-        const acc = account as Account & {
-          access_token?: string;
-          refresh_token?: string;
-          expires_in?: number;
+        return {
+          ...token,
+          access_token: (account as any).access_token,
+          refresh_token: (account as any).refresh_token ?? (token as any).refresh_token,
+          expires_at:
+            Math.floor(Date.now() / 1000) + ((account as any).expires_in ?? 3600),
         };
-
-        if (acc.access_token) {
-          t.access_token = acc.access_token;
-          t.refresh_token = acc.refresh_token ?? t.refresh_token;
-          t.expires_at = Math.floor(Date.now() / 1000) + (acc.expires_in ?? 3600);
-          return t;
-        }
       }
-
-      // If we still have a valid token, keep it
-      if (t.expires_at && Date.now() / 1000 < t.expires_at) return t;
-
-      // Otherwise try refreshing
-      if (t.refresh_token) return refreshAccessToken(t);
-
-      return t;
+      // Refresh if expired
+      if ((token as any).expires_at && Date.now() / 1000 >= (token as any).expires_at) {
+        return await refreshAccessToken(token);
+      }
+      return token;
     },
 
     async session({ session, token }) {
-      // Expose the access token to the client and API routes
-      (session as Session & { access_token?: string }).access_token = (token as YahooToken).access_token;
+      (session as any).accessToken = (token as any).access_token;
       return session;
     },
   },
