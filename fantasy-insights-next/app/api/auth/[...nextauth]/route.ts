@@ -72,7 +72,7 @@ const yahooProvider = ({
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      scope: "openid", // ← Only openid
+      scope: "openid email profile", // <-- OpenID Connect scopes
       code_challenge_method: "S256",
       redirect_uri: process.env.YAHOO_REDIRECT_URI!,
     },
@@ -86,7 +86,6 @@ const yahooProvider = ({
   userinfo: { url: "https://api.login.yahoo.com/openid/v1/userinfo" },
   clientId: process.env.YAHOO_CLIENT_ID!,
   clientSecret: process.env.YAHOO_CLIENT_SECRET!,
-  client: { token_endpoint_auth_method: "client_secret_basic" },
   profile(profile: YahooProfile) {
     return {
       id: profile.sub,
@@ -139,3 +138,4 @@ const authOptions: AuthOptions = {
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
+
