@@ -1,7 +1,7 @@
 import NextAuth, { type AuthOptions } from "next-auth";
 import type { OAuthConfig } from "next-auth/providers/oauth";
 
-// Yahoo OpenID profile shape
+// Yahoo OpenID profile shape (minimal)
 type YahooProfile = {
   sub: string;
   name?: string;
@@ -10,8 +10,8 @@ type YahooProfile = {
   picture?: string;
 };
 
-// ---- Yahoo provider (forces ES256 + exact redirect_uri) ----
-const yahooProvider: OAuthConfig<YahooProfile> = {
+// ---- Yahoo provider (ES256 + explicit redirect_uri) ----
+const yahooProvider = {
   id: "yahoo",
   name: "Yahoo",
   type: "oauth",
@@ -19,21 +19,19 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
   // Use Yahoo's OpenID discovery
   wellKnown: "https://api.login.yahoo.com/.well-known/openid-configuration",
 
-  // Keep scope minimal to avoid "invalid_scope"
-  // If you enabled Email + Profile in the Yahoo app, you can use: "openid email profile"
+  // Keep scope minimal first; once working, you can switch to "openid email profile"
   authorization: {
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      scope: "openid", // change to "openid email profile" only if those scopes are enabled in your Yahoo app
+      scope: "openid",
       code_challenge_method: "S256",
-      redirect_uri: process.env.YAHOO_REDIRECT_URI!, // must EXACTLY match the Yahoo app setting
+      redirect_uri: process.env.YAHOO_REDIRECT_URI!, // MUST exactly match Yahoo console
     },
   },
 
   token: {
     url: "https://api.login.yahoo.com/oauth2/get_token",
-    // Some providers require redirect_uri during token exchange — include explicitly
     params: { redirect_uri: process.env.YAHOO_REDIRECT_URI! },
   },
 
@@ -42,7 +40,7 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
   clientId: process.env.YAHOO_CLIENT_ID!,
   clientSecret: process.env.YAHOO_CLIENT_SECRET!,
 
-  // ✅ Tell NextAuth/openid-client that Yahoo signs ID tokens with ES256
+  // Tell openid-client/NextAuth the expected signing alg is ES256
   client: {
     token_endpoint_auth_method: "client_secret_basic",
     id_token_signed_response_alg: "ES256",
@@ -50,23 +48,23 @@ const yahooProvider: OAuthConfig<YahooProfile> = {
   },
 
   // nonce is required for ID token validation
-  checks: ["pkce", "state", "nonce"],
+  checks: ["pkce", "state", "nonce"] as const,
 
-  profile(profile) {
+  profile(profile: YahooProfile) {
     return {
       id: profile.sub,
-      name: profile.name || profile.nickname || "Yahoo User",
+      name: profile.name ?? profile.nickname ?? "Yahoo User",
       email: profile.email,
       image: profile.picture,
     };
   },
-};
+} satisfies OAuthConfig<YahooProfile>;
 
+// ---- NextAuth config ----
 const authOptions: AuthOptions = {
   providers: [yahooProvider],
   session: { strategy: "jwt" },
   debug: true,
-  // Helpful on Vercel behind a proxy
 };
 
 const handler = NextAuth(authOptions);
