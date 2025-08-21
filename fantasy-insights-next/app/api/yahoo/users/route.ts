@@ -1,49 +1,24 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
-import type { JWT } from "next-auth/jwt";
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../../../../lib/auth";
 
-/** Shape returned by Yahoo OpenID userinfo */
-interface YahooUserInfo {
-  sub: string;
-  name?: string;
-  nickname?: string;
-  email?: string;
-  email_verified?: boolean;
-  picture?: string;
-  locale?: string;
-}
+type Ok = { ok: true; user: { id?: string; email?: string; name?: string } };
+type NotAuthed = { ok: false; error: "UNAUTHORIZED" };
 
-type YahooJWT = JWT & {
-  access_token?: string;
-};
+export async function GET(): Promise<NextResponse<Ok | NotAuthed>> {
+  const session = await getServerSession(authOptions);
 
-export async function GET(req: NextRequest) {
-  // Read the NextAuth JWT from cookies and pull the Yahoo access token we saved in callbacks
-  const jwt = (await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-  })) as YahooJWT | null;
-
-  if (!jwt || typeof jwt.access_token !== "string") {
-    return NextResponse.json(
-      { error: "Not authenticated (no access token in session)." },
-      { status: 401 }
-    );
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const res = await fetch("https://api.login.yahoo.com/openid/v1/userinfo", {
-    headers: { Authorization: `Bearer ${jwt.access_token}` },
-    // Always fetch from the origin; do not cache
-    cache: "no-store",
+  // Stub: return minimal user data (you can later call Yahoo userinfo here)
+  return NextResponse.json({
+    ok: true,
+    user: {
+      id: session.user?.email ?? undefined,
+      email: session.user?.email ?? undefined,
+      name: session.user?.name ?? undefined,
+    },
   });
-
-  if (!res.ok) {
-    return NextResponse.json(
-      { error: "Yahoo userinfo request failed.", status: res.status },
-      { status: res.status }
-    );
-  }
-
-  const data = (await res.json()) as YahooUserInfo;
-  return NextResponse.json(data, { status: 200 });
 }

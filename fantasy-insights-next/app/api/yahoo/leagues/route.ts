@@ -1,50 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
-import type { JWT } from "next-auth/jwt";
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../../../../lib/auth";
 
-/** Minimal, type-safe shape for the Fantasy API payload (no `any`). */
-type YahooFantasyResponse = {
-  [key: string]: unknown; // top-level is dynamic, keep it unknown not any
-};
+type League = { id: string; name: string; season?: string };
+type LeaguesOk = { leagues: League[] };
+type NotAuthed = { error: "UNAUTHORIZED" };
 
-type YahooJWT = JWT & {
-  access_token?: string;
-};
+export async function GET(): Promise<NextResponse<LeaguesOk | NotAuthed>> {
+  const session = await getServerSession(authOptions);
 
-export async function GET(req: NextRequest) {
-  const jwt = (await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-  })) as YahooJWT | null;
-
-  if (!jwt || typeof jwt.access_token !== "string") {
-    return NextResponse.json(
-      { error: "Not authenticated (no access token in session)." },
-      { status: 401 }
-    );
+  if (!session) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  // Yahoo Fantasy example endpoint (requires fspt-r scope)
-  const url =
-    "https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1/games;game_keys=nfl/leagues?format=json";
+  // Stub leagues for now (replace with real Yahoo fetch once auth flow is 100%)
+  const leagues: League[] = [
+    { id: "demo-123", name: "Rex Grossman Premier", season: "2025" },
+    { id: "demo-456", name: "RG Roto Elite", season: "2025" },
+  ];
 
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${jwt.access_token}` },
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    return NextResponse.json(
-      {
-        error: "Yahoo Fantasy API request failed.",
-        status: res.status,
-        details: text,
-      },
-      { status: res.status }
-    );
-  }
-
-  const data = (await res.json()) as YahooFantasyResponse;
-  return NextResponse.json(data, { status: 200 });
+  return NextResponse.json({ leagues });
 }

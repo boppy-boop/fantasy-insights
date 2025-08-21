@@ -2,75 +2,37 @@
 
 import { useSession, signIn, signOut } from "next-auth/react";
 
-export const dynamic = "force-dynamic";
-
-export default function Home() {
+export default function AuthButton() {
   const { data: session, status } = useSession();
 
-  async function callUserInfo() {
-    const res = await fetch("/api/yahoo/user");
-    const text = await res.text();
-    alert(text);
+  if (status === "loading") {
+    return (
+      <button
+        disabled
+        className="rounded-xl bg-zinc-800/70 px-5 py-3 text-white"
+      >
+        Checking session…
+      </button>
+    );
   }
 
-  async function callLeagues() {
-    const res = await fetch("/api/yahoo/leagues");
-    const text = await res.text();
-    alert(text);
+  if (status === "authenticated") {
+    return (
+      <button
+        onClick={() => signOut()}
+        className="rounded-xl bg-zinc-800/80 px-5 py-3 font-medium text-white shadow transition hover:bg-zinc-700"
+      >
+        Sign out
+      </button>
+    );
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center">
-      <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold">Fantasy Insights</h1>
-
-        {status === "authenticated" ? (
-          <>
-            <p>
-              Signed in as{" "}
-              <b>
-                {session?.user?.email ?? session?.user?.name ?? "Yahoo User"}
-              </b>
-            </p>
-
-            <div className="space-x-2">
-              <button
-                onClick={callUserInfo}
-                className="px-3 py-2 rounded bg-zinc-800 text-white"
-              >
-                Test Yahoo Userinfo
-              </button>
-
-              <button
-                onClick={callLeagues}
-                className="px-3 py-2 rounded bg-indigo-700 text-white"
-                title="Requires fspt-r scope enabled in your Yahoo app"
-              >
-                Load Yahoo Leagues
-              </button>
-            </div>
-
-            <div>
-              <button
-                onClick={() => signOut()}
-                className="px-3 py-2 rounded bg-zinc-700 text-white mt-2"
-              >
-                Sign out
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p>Sign in to load your Yahoo League Data.</p>
-            <button
-              onClick={() => signIn("yahoo")}
-              className="px-3 py-2 rounded bg-purple-700 text-white"
-            >
-              Sign in with Yahoo
-            </button>
-          </>
-        )}
-      </div>
-    </main>
+    <button
+      onClick={() => signIn("yahoo")}
+      className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3 font-medium text-white shadow-lg shadow-indigo-900/30 transition hover:scale-[1.02]"
+    >
+      Sign in with Yahoo
+    </button>
   );
 }
