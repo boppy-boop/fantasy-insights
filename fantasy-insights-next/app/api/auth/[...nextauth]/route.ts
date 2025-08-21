@@ -1,141 +1,81 @@
-export const runtime = "nodejs";
-
-import NextAuth, { type AuthOptions } from "next-auth";
+import NextAuth, { type NextAuthOptions } from "next-auth";
 import type { OAuthConfig } from "next-auth/providers/oauth";
+import type { Account, DefaultSession } from "next-auth";
 import type { JWT } from "next-auth/jwt";
-import type { Session, Account } from "next-auth";
 
-// ---- Types ----
+/** Shape of Yahoo's OpenID userinfo response we use */
 type YahooProfile = {
   sub: string;
+  email?: string;
   name?: string;
   nickname?: string;
-  email?: string;
   picture?: string;
 };
 
-type YahooToken = JWT & {
-  access_token?: string;
-  refresh_token?: string;
-  expires_at?: number; // epoch seconds
-  error?: "RefreshAccessTokenError";
-};
-
-// ---- Helpers ----
-function basicAuth(): string {
-  const id = process.env.YAHOO_CLIENT_ID!;
-  const secret = process.env.YAHOO_CLIENT_SECRET!;
-  return Buffer.from(`${id}:${secret}`).toString("base64");
-}
-
-async function refreshAccessToken(token: YahooToken): Promise<YahooToken> {
-  try {
-    const res = await fetch("https://api.login.yahoo.com/oauth2/get_token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${basicAuth()}`,
-      },
-      body: new URLSearchParams({
-        grant_type: "refresh_token",
-        refresh_token: token.refresh_token ?? "",
-      }),
-    });
-
-    const refreshed = (await res.json()) as {
-      access_token?: string;
-      refresh_token?: string;
-      expires_in?: number;
-      error?: unknown;
-    };
-
-    if (!res.ok || !refreshed.access_token) throw refreshed;
-
-    return {
-      ...token,
-      access_token: refreshed.access_token,
-      expires_at: Math.floor(Date.now() / 1000) + (refreshed.expires_in ?? 3600),
-      refresh_token: refreshed.refresh_token ?? token.refresh_token,
-    };
-  } catch {
-    return { ...token, error: "RefreshAccessTokenError" };
-  }
-}
-
-// ---- Yahoo Provider (typed) ----
-const yahooProvider = ({
+/** Yahoo provider with explicit redirect_uri and minimal scope */
+const yahooProvider: OAuthConfig<YahooProfile> = {
   id: "yahoo",
   name: "Yahoo",
   type: "oauth",
   checks: ["pkce", "state"],
+
   authorization: {
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      scope: "openid email profile",
+      scope: "openid", // keep minimal while stabilizing
       code_challenge_method: "S256",
-      redirect_uri: process.env.YAHOO_REDIRECT_URI!,
+      redirect_uri: process.env.YAHOO_REDIRECT_URI!, // must match Yahoo console exactly
     },
   },
+
   token: {
     url: "https://api.login.yahoo.com/oauth2/get_token",
-    params: {
-      redirect_uri: process.env.YAHOO_REDIRECT_URI!,
-    },
+    // include redirect_uri in token exchange to avoid provider rejections
+    params: { redirect_uri: process.env.YAHOO_REDIRECT_URI! },
   },
+
   userinfo: { url: "https://api.login.yahoo.com/openid/v1/userinfo" },
+
   clientId: process.env.YAHOO_CLIENT_ID!,
   clientSecret: process.env.YAHOO_CLIENT_SECRET!,
-  profile(profile: YahooProfile) {
+  client: { token_endpoint_auth_method: "client_secret_basic" },
+
+  profile(p) {
     return {
-      id: profile.sub,
-      name: profile.name ?? profile.nickname ?? "Yahoo User",
-      email: profile.email ?? null,
-      image: profile.picture ?? null,
+      id: p.sub,
+      name: p.name ?? p.nickname ?? "Yahoo User",
+      email: p.email,
+      image: p.picture,
     };
   },
-  idToken: {
-    algorithms: ['ES256'], // <-- This line is required!
-  },
-} as unknown) as OAuthConfig<YahooProfile> & { idToken: { algorithms: string[] } };
+};
 
-// ---- NextAuth config ----
-const authOptions: AuthOptions = {
-  providers: [yahooProvider], // <-- no `any`
+/** NextAuth options (not exported — only GET/POST are exported for App Router) */
+const options: NextAuthOptions = {
+  providers: [yahooProvider],
   session: { strategy: "jwt" },
   debug: true,
+
   callbacks: {
     async jwt({ token, account }) {
-      const t = token as YahooToken;
-
+      // Persist access_token on first sign-in
       if (account) {
-        const acc = account as Account & {
-          access_token?: string;
-          refresh_token?: string;
-          expires_in?: number;
-        };
-        if (acc.access_token) {
-          return {
-            ...t,
-            access_token: acc.access_token,
-            refresh_token: acc.refresh_token ?? t.refresh_token,
-            expires_at: Math.floor(Date.now() / 1000) + (acc.expires_in ?? 3600),
-          };
-        }
+        const acc = account as Account & { access_token?: string };
+        if (acc.access_token) token.access_token = acc.access_token;
       }
-
-      if (t.expires_at && Date.now() / 1000 < t.expires_at) return t;
-
-      return await refreshAccessToken(t);
+      return token;
     },
 
     async session({ session, token }) {
-      (session as Session & { access_token?: string }).access_token = (token as YahooToken).access_token;
+      // Expose access_token in the session (typed safely)
+      (session as DefaultSession & { access_token?: string }).access_token = (token as JWT & {
+        access_token?: string;
+      }).access_token;
       return session;
     },
   },
 };
 
-const handler = NextAuth(authOptions);
+const handler = NextAuth(options);
 export { handler as GET, handler as POST };
-
