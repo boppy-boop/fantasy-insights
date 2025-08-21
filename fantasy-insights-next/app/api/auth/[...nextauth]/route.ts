@@ -63,7 +63,7 @@ async function refreshAccessToken(token: YahooToken): Promise<YahooToken> {
 }
 
 // ---- Yahoo Provider (typed) ----
-const yahooProvider = {
+const yahooProvider = ({
   id: "yahoo",
   name: "Yahoo",
   type: "oauth",
@@ -87,18 +87,18 @@ const yahooProvider = {
   clientId: process.env.YAHOO_CLIENT_ID!,
   clientSecret: process.env.YAHOO_CLIENT_SECRET!,
   client: { token_endpoint_auth_method: "client_secret_basic" },
-  profile(profile) {
+  profile(profile: YahooProfile) {
     return {
       id: profile.sub,
-      name: profile.name || profile.nickname || "Yahoo User",
-      email: profile.email,
-      image: profile.picture,
+      name: profile.name ?? profile.nickname ?? "Yahoo User",
+      email: profile.email ?? null,
+      image: profile.picture ?? null,
     };
   },
   idToken: {
     algorithms: ['ES256'],
   },
-} as OAuthConfig<YahooProfile> & { idToken: { algorithms: string[] } };
+} as unknown) as OAuthConfig<YahooProfile> & { idToken: { algorithms: string[] } };
 
 // ---- NextAuth config ----
 const authOptions: AuthOptions = {
