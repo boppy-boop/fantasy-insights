@@ -72,7 +72,7 @@ const yahooProvider = ({
     url: "https://api.login.yahoo.com/oauth2/request_auth",
     params: {
       response_type: "code",
-      scope: "openid email",
+      scope: "openid", // ← Only openid
       code_challenge_method: "S256",
       redirect_uri: process.env.YAHOO_REDIRECT_URI!,
     },
