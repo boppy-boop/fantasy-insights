@@ -1,73 +1,157 @@
+// app/page.tsx
 "use client";
-import { useSession, signIn } from "next-auth/react";
+
 import Link from "next/link";
+import { useSession, signIn, signOut } from "next-auth/react";
+import { useMemo } from "react";
 
-function OptionCard({ title, description, href }: { title: string; description: string; href: string }) {
-  return (
-    <Link href={href} className="group block rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition hover:shadow-md">
-      <div className="flex items-start justify-between">
-        <h3 className="text-lg font-bold tracking-tight text-neutral-900">{title}</h3>
-        <div className="rounded-full border border-neutral-200 p-2 transition group-hover:translate-x-1">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-neutral-600"><path d="M13.293 4.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L17.586 12l-4.293-4.293a1 1 0 010-1.414z"/><path d="M3 12a1 1 0 011-1h14a1 1 0 110 2H4a1 1 0 01-1-1z"/></svg>
-        </div>
-      </div>
-      <p className="mt-2 text-sm text-neutral-600">{description}</p>
-    </Link>
-  );
-}
+type Card = {
+  href: string;
+  title: string;
+  blurb: string;
+  badge?: string;
+};
 
-export default function Page() {
+export default function HomePage() {
   const { data: session, status } = useSession();
-  const firstName = (session?.user?.name || "").split(" ")[0] || undefined;
+
+  const firstName = useMemo(() => {
+    const raw =
+      (session?.user?.name && session.user.name.trim()) ||
+      (session?.user?.email && session.user.email.split("@")[0]) ||
+      "Manager";
+    // simple first token
+    const tok = raw.split(/\s+/)[0];
+    // Capitalize first letter for nicer greeting if needed
+    return tok.charAt(0).toUpperCase() + tok.slice(1);
+  }, [session?.user?.name, session?.user?.email]);
+
+  const cards: Card[] = [
+    {
+      href: "/fantasy?season=2025&week=preseason",
+      title: "Current Year League (2025)",
+      blurb:
+        "Weekly dashboard with ESPN-style notes: Team of the Week, blowouts, upsets, power rankings & more.",
+      badge: "Live",
+    },
+    {
+      href: "/history",
+      title: "History",
+      blurb:
+        "Season archives, previous years’ analytics, and narrative recaps powered by your Yahoo data.",
+    },
+    {
+      href: "/records",
+      title: "Championship Records & Leaderboard",
+      blurb:
+        "Top finishers across seasons plus fun league records: high scores, longest streaks, biggest blowouts.",
+    },
+  ];
 
   return (
-    <div className="space-y-10">
+    <main className="min-h-screen bg-zinc-950">
       {/* Hero */}
-      <section className="rounded-3xl border border-neutral-200 bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-700 p-8 text-white shadow-sm">
-        <p className="text-xs uppercase tracking-widest text-neutral-300">Rex Grossman Memorial Championship Series</p>
-        <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
-          {firstName ? (
-            <>
-              Welcome back, <span className="text-red-400">{firstName}</span>.
-            </>
-          ) : (
-            <>Welcome to your Fantasy Insights Hub.</>
-          )}
-        </h1>
-        <p className="mt-3 max-w-2xl text-neutral-200">
-          Sign in with Yahoo to pull live league data and generate storylines, power rankings, and matchup notes—styled like a modern ESPN dashboard.
-        </p>
-        {!firstName && (
-          <button
-            onClick={() => signIn("yahoo")}
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4"><path d="M19.5 6h-15a1.5 1.5 0 00-1.5 1.5v9A1.5 1.5 0 004.5 18h15a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0019.5 6zM6 8.25h12V9H6v-.75zM6 10.5h12v3H6v-3z" /></svg>
-            Sign in with Yahoo
-          </button>
-        )}
-      </section>
+      <section className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-black">
+        <div className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              <p className="text-sm uppercase tracking-widest text-red-400">Rex Grossman Championship S League</p>
+              <h1 className="mt-2 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+                {status === "authenticated" ? (
+                  <>
+                    Welcome back, <span className="text-red-500">{firstName}</span>.
+                  </>
+                ) : (
+                  <>Your Fantasy Insights Hub</>
+                )}
+              </h1>
+              <p className="mt-3 max-w-2xl text-lg leading-7 text-zinc-300">
+                Modern ESPN-style league site with AI-generated notes based on what’s actually happening in your league.
+              </p>
 
-      {/* Options */}
-      <section>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          <OptionCard
-            title="Current Year League Information (2025 Season)"
-            description="Live standings, matchups, power rankings, injury headlines, and AI-generated weekly notes."
-            href="/fantasy"
-          />
-          <OptionCard
-            title="History"
-            description="Interactive dashboard of prior seasons with trends, draft hit rates, manager tendencies, and rivalry heat."
-            href="/history"
-          />
-          <OptionCard
-            title="Championship Records & Leaderboard"
-            description="Hall of Fame, single-week records, longest win streaks, and podium finishes across iterations."
-            href="/records"
-          />
+              <div className="mt-5 flex items-center gap-3">
+                {status === "authenticated" ? (
+                  <>
+                    <Link
+                      href="/fantasy?season=2025&week=preseason"
+                      className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500"
+                    >
+                      Open 2025 Dashboard
+                    </Link>
+                    <button
+                      onClick={() => void signOut()}
+                      className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-100 hover:bg-zinc-800"
+                    >
+                      Sign out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => void signIn()}
+                      className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500"
+                    >
+                      Sign in to personalize
+                    </button>
+                    <Link
+                      href="/fantasy?season=2025&week=preseason"
+                      className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-100 hover:bg-zinc-800"
+                    >
+                      Continue as guest
+                    </Link>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Small quick link to Owners */}
+            <div className="hidden sm:block">
+              <Link
+                href="/owners"
+                className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800"
+              >
+                Owners Hub
+                <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-300 ring-1 ring-white/10">
+                  New
+                </span>
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
-    </div>
+
+      {/* 3-option grid */}
+      <section className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
+        <div className="grid gap-6 md:grid-cols-3">
+          {cards.map((c) => (
+            <Link
+              key={c.href}
+              href={c.href}
+              className="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10 transition hover:shadow-zinc-900/40"
+            >
+              {/* ambient glow */}
+              <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rotate-12 rounded-full bg-red-700/10 blur-2xl transition group-hover:bg-red-600/20" />
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">{c.title}</h2>
+                {c.badge && (
+                  <span className="rounded-md bg-red-600/20 px-2 py-0.5 text-xs font-semibold text-red-300 ring-1 ring-red-700/40">
+                    {c.badge}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-zinc-300">{c.blurb}</p>
+              <div className="mt-4 text-sm font-semibold text-red-400 group-hover:text-red-300">
+                Open →
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* flavor footer */}
+        <div className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-center text-sm text-zinc-400">
+          Tip: After you sign in, the hero will greet you by first name and we’ll personalize notes with your team.
+        </div>
+      </section>
+    </main>
   );
 }

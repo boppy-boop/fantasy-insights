@@ -1,23 +1,53 @@
+// app/api/yahoo/leagues/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../../../../lib/auth";
 
-type League = { id: string; name: string; season?: string };
-type LeaguesOk = { leagues: League[] };
-type NotAuthed = { error: "UNAUTHORIZED" };
+type LeagueSummary = {
+  leagueKey: string;
+  name: string;
+  season: string;
+};
 
-export async function GET(): Promise<NextResponse<LeaguesOk | NotAuthed>> {
-  const session = await getServerSession(authOptions);
+// disable caching in dev/preview so UI reflects changes immediately
+export const dynamic = "force-dynamic";
 
-  if (!session) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+const MOCK_LEAGUES: Record<string, LeagueSummary[]> = {
+  "2025": [
+    {
+      leagueKey: "nfl.l.777777",
+      name: "Rex Grossman Championship S League",
+      season: "2025",
+    },
+  ],
+  "2024": [
+    {
+      leagueKey: "nfl.l.777777",
+      name: "Rex Grossman Championship S League",
+      season: "2024",
+    },
+  ],
+  "2023": [
+    {
+      leagueKey: "nfl.l.777777",
+      name: "Rex Grossman Championship S League",
+      season: "2023",
+    },
+  ],
+};
 
-  // Stub leagues for now (replace with real Yahoo fetch once auth flow is 100%)
-  const leagues: League[] = [
-    { id: "demo-123", name: "Rex Grossman Premier", season: "2025" },
-    { id: "demo-456", name: "RG Roto Elite", season: "2025" },
-  ];
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const seasonParam = url.searchParams.get("season");
 
-  return NextResponse.json({ leagues });
+  // normalize season (fallback to 2025)
+  const season =
+    seasonParam && /^\d{4}$/.test(seasonParam) ? seasonParam : "2025";
+
+  const leagues = MOCK_LEAGUES[season] ?? [];
+
+  return NextResponse.json(
+    { leagues },
+    {
+      headers: { "Cache-Control": "no-store" },
+    }
+  );
 }
