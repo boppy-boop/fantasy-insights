@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { weeks2025, type WeekData } from "@/lib/season2025";
 import ThisWeek from "@/components/ThisWeek";
 import WeeklyNotes from "@/components/WeeklyNotes";
+import PlayerHeadshot from "@/components/PlayerHeadshot";
 
 type InsightTab = "powerRankings" | "stealsOverpays" | "strengthOfSchedule";
 
@@ -225,19 +226,9 @@ export default function FantasyPage() {
                       <h4 className="text-xl font-semibold text-white">
                         #{t.rank} {t.team}
                       </h4>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         {t.players?.map((p, i) => (
-                          <img
-                            key={`${p.name}-${i}`}
-                            src={p.image}
-                            alt={p.name}
-                            title={p.name}
-                            className="h-8 w-8 rounded-full border border-zinc-800 object-cover"
-                            onError={(ev) => {
-                              const el = ev.currentTarget as HTMLImageElement;
-                              el.style.display = "none";
-                            }}
-                          />
+                          <PlayerHeadshot key={`${p.name}-${i}`} name={p.name} size={56} className="ml-0.5" />
                         ))}
                       </div>
                     </div>
@@ -270,16 +261,7 @@ export default function FantasyPage() {
                         className="rounded-xl border border-emerald-900 bg-zinc-950/60 p-4"
                       >
                         <div className="mb-1 flex items-center gap-3">
-                          <img
-                            src={s.image}
-                            alt={s.player}
-                            title={s.player}
-                            className="h-10 w-10 rounded-full border border-emerald-800 object-cover"
-                            onError={(ev) => {
-                              const el = ev.currentTarget as HTMLImageElement;
-                              el.style.display = "none";
-                            }}
-                          />
+                          <PlayerHeadshot name={s.player} size={54} className="mr-1.5" />
                           <p className="font-semibold text-emerald-200">
                             {s.player} ({s.cost}) — {s.team}
                           </p>
@@ -304,16 +286,7 @@ export default function FantasyPage() {
                         className="rounded-xl border border-red-900 bg-zinc-950/60 p-4"
                       >
                         <div className="mb-1 flex items-center gap-3">
-                          <img
-                            src={o.image}
-                            alt={o.player}
-                            title={o.player}
-                            className="h-10 w-10 rounded-full border border-red-800 object-cover"
-                            onError={(ev) => {
-                              const el = ev.currentTarget as HTMLImageElement;
-                              el.style.display = "none";
-                            }}
-                          />
+                          <PlayerHeadshot name={o.player} size={54} className="mr-1.5" />
                           <p className="font-semibold text-red-200">
                             {o.player} ({o.cost}) — {o.team}
                           </p>
