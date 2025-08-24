@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 
 type Props = {
   /** Display name (used for alt text and initials fallback) */
@@ -16,6 +17,8 @@ type Props = {
   className?: string;
   /** Optional title tooltip; defaults to name */
   title?: string;
+  /** If true, bypass Next image optimization (useful for lots of remote heads) */
+  unoptimized?: boolean;
 };
 
 export default function PlayerHeadshot({
@@ -25,6 +28,7 @@ export default function PlayerHeadshot({
   rounded = "full",
   className = "",
   title,
+  unoptimized = false,
 }: Props) {
   const [failed, setFailed] = useState<boolean>(false);
 
@@ -35,18 +39,15 @@ export default function PlayerHeadshot({
   }, [name]);
 
   const hue = useMemo(() => {
-    // simple deterministic hash → hue (0..360)
     let h = 0;
-    for (let i = 0; i < name.length; i++) {
-      h = (h * 31 + name.charCodeAt(i)) % 360;
-    }
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
     return h;
   }, [name]);
 
   const borderRadius =
     rounded === "full" ? "9999px" : rounded === "lg" ? "12px" : rounded === "md" ? "8px" : "0px";
 
-  const commonStyle: React.CSSProperties = {
+  const containerStyle: React.CSSProperties = {
     width: size,
     height: size,
     borderRadius,
@@ -66,35 +67,35 @@ export default function PlayerHeadshot({
     border: "1px solid rgba(255,255,255,0.06)",
   };
 
-  const imgStyle: React.CSSProperties = {
-    width: size,
-    height: size,
-    objectFit: "cover",
-    borderRadius,
-    border: "1px solid rgba(255,255,255,0.06)",
-    background: "#0a0a0a",
-  };
-
   const tooltip = title || name;
 
-  // If we have a src and it hasn't failed, try image first
+  // If we have a src and it hasn't failed, render optimized Image
   if (src && !failed) {
     return (
-      <img
-        src={src}
-        alt={name}
-        title={tooltip}
-        style={imgStyle}
-        className={className}
-        onError={() => setFailed(true)}
-        loading="lazy"
-      />
+      <span style={containerStyle} className={className} title={tooltip}>
+        <Image
+          src={src}
+          alt={name}
+          width={size}
+          height={size}
+          onError={() => setFailed(true)}
+          unoptimized={unoptimized}
+          style={{
+            objectFit: "cover",
+            width: size,
+            height: size,
+            borderRadius,
+            border: "1px solid rgba(255,255,255,0.06)",
+            background: "#0a0a0a",
+          }}
+        />
+      </span>
     );
   }
 
   // Fallback: colored initials
   return (
-    <div style={{ ...commonStyle, ...gradientStyle }} className={className} title={tooltip} aria-label={name}>
+    <div style={{ ...containerStyle, ...gradientStyle }} className={className} title={tooltip} aria-label={name}>
       {initials}
     </div>
   );

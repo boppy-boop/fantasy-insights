@@ -1,118 +1,120 @@
 // app/page.tsx
 "use client";
 
+import { Suspense, useMemo } from "react";
 import Link from "next/link";
-import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { useSession, signIn, signOut } from "next-auth/react";
 
-export default function HomePage() {
-  const { data: session, status } = useSession();
-  const sp = useSearchParams();
+/**
+ * Wrap the client landing in Suspense to satisfy Next.js's requirement
+ * for useSearchParams in app router pages.
+ */
+export default function Page() {
+  return (
+    <Suspense fallback={<LandingSkeleton />}>
+      <LandingClient />
+    </Suspense>
+  );
+}
 
-  const firstName = useMemo(() => {
-    const name = session?.user?.name || "";
-    const first = name.trim().split(/\s+/)[0] || "";
-    return first || "Manager";
-  }, [session]);
+function LandingClient() {
+  // You may use this later for deep-links or debug flags; keeping it
+  // here (inside Suspense) prevents the CSR bailout error.
+  const searchParams = useSearchParams();
+  void searchParams;
 
-  // optional: allow ?season= override in case you deep-link back here
-  const season = useMemo(() => sp.get("season") ?? "2025", [sp]);
+  // TODO: replace with real session-derived first name once next-auth is wired.
+  // For now, keep it stable and friendly.
+  const firstName = useMemo(() => "Manager", []);
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-zinc-950">
+    <main className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
       {/* Hero */}
-      <section className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-black">
-        <div className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="max-w-3xl">
-              <p className="text-sm uppercase tracking-widest text-red-400">Welcome</p>
-              <h1 className="mt-2 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-                {status === "authenticated" ? `Hey ${firstName},` : "Rex Grossman Championship S League"}
-              </h1>
-              <p className="mt-3 text-lg leading-7 text-zinc-300">
-                Your modern, ESPN-styled fantasy hub — live insights, multi-season history,
-                and a running hall of fame.
-              </p>
-              <div className="mt-5 flex flex-wrap gap-3">
-                {status === "authenticated" ? (
-                  <button
-                    onClick={() => signOut()}
-                    className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-100 hover:bg-zinc-700"
-                  >
-                    Sign out
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => signIn("yahoo")}
-                    className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-500"
-                  >
-                    Sign in with Yahoo
-                  </button>
-                )}
-              </div>
-            </div>
+      <section className="rounded-3xl border border-zinc-800 bg-gradient-to-br from-purple-950/40 via-zinc-900 to-indigo-950/40 p-8 shadow-2xl ring-1 ring-black/10">
+        <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl">
+          Welcome back, {firstName}! 🏈
+        </h1>
+        <p className="mt-3 max-w-2xl text-zinc-300">
+          Dive into your league’s live insights, history, and all-time records — presented with an
+          ESPN-style polish and AI-ready commentary hooks.
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link
+            href="/fantasy?tab=season-2025"
+            className="rounded-xl bg-purple-700 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-900/50 hover:bg-purple-600"
+          >
+            2025 Season Hub
+          </Link>
+          <Link
+            href="/owners"
+            className="rounded-xl border border-zinc-700 bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+          >
+            Owners & Teams
+          </Link>
+        </div>
+      </section>
 
-            <div className="hidden md:block">
-              {/* simple decorative football shape */}
-              <div className="relative h-32 w-56 rotate-12">
-                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-red-800 to-red-600 shadow-2xl ring-1 ring-white/10" />
-                <div className="absolute left-1/2 top-1/2 h-24 w-1 -translate-x-1/2 -translate-y-1/2 rounded bg-white/70 shadow" />
-                <div className="absolute left-1/2 top-1/2 h-1 w-28 -translate-x-1/2 -translate-y-1/2 rounded bg-white/70 shadow" />
-                <div className="absolute left-1/2 top-[46%] h-1 w-24 -translate-x-1/2 rounded bg-white/70 shadow" />
-                <div className="absolute left-1/2 top-[54%] h-1 w-24 -translate-x-1/2 rounded bg-white/70 shadow" />
-              </div>
-            </div>
+      {/* Three primary tiles */}
+      <section className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {/* 1. 2025 Season */}
+        <Link
+          href="/fantasy?tab=season-2025"
+          className="group rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-xl ring-1 ring-black/10 transition hover:-translate-y-[2px] hover:bg-zinc-850 hover:shadow-2xl"
+        >
+          <div className="mb-3 text-xs uppercase tracking-wider text-purple-300">
+            2025 Season
           </div>
-        </div>
+          <h2 className="text-xl font-bold text-white group-hover:text-purple-200">
+            Current Year League Information
+          </h2>
+          <p className="mt-2 text-sm text-zinc-400">
+            Preseason, Week 1–17 selector, live scoreboard, weekly notes, waiver steals &amp; overpays.
+          </p>
+        </Link>
+
+        {/* 2. History */}
+        <Link
+          href="/fantasy?tab=history"
+          className="group rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-xl ring-1 ring-black/10 transition hover:-translate-y-[2px] hover:bg-zinc-850 hover:shadow-2xl"
+        >
+          <div className="mb-3 text-xs uppercase tracking-wider text-emerald-300">History</div>
+          <h2 className="text-xl font-bold text-white group-hover:text-emerald-200">
+            Past Seasons: Stats &amp; Analytics
+          </h2>
+          <p className="mt-2 text-sm text-zinc-400">
+            Pulls from Yahoo across all available league years; power rankings, matchup graphs, trends.
+          </p>
+        </Link>
+
+        {/* 3. Records & Leaderboard */}
+        <Link
+          href="/fantasy?tab=records"
+          className="group rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-xl ring-1 ring-black/10 transition hover:-translate-y-[2px] hover:bg-zinc-850 hover:shadow-2xl"
+        >
+          <div className="mb-3 text-xs uppercase tracking-wider text-amber-300">
+            Records &amp; Leaderboard
+          </div>
+          <h2 className="text-xl font-bold text-white group-hover:text-amber-200">
+            Championships &amp; All-Time Marks
+          </h2>
+          <p className="mt-2 text-sm text-zinc-400">
+            Top finishers by season, longest win streaks, highest single-week scores, and more.
+          </p>
+        </Link>
       </section>
+    </main>
+  );
+}
 
-      {/* Primary Actions */}
-      <section className="mx-auto max-w-7xl px-6 pb-12 pt-6 lg:px-8">
-        <div className="grid gap-6 md:grid-cols-3">
-          {/* 1. Current Year */}
-          <Link
-            href={`/fantasy?season=${encodeURIComponent(season)}`}
-            className="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10 transition hover:-translate-y-0.5 hover:border-red-600 hover:bg-zinc-850"
-          >
-            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-red-600/10 blur-2xl transition group-hover:bg-red-600/20" />
-            <p className="text-xs font-semibold uppercase tracking-wider text-red-400">2025 Season</p>
-            <h2 className="mt-1 text-xl font-bold text-white">Current Year League Information</h2>
-            <p className="mt-2 text-sm text-zinc-300">
-              Live weekly insights, standings, and matchups. Preseason shows your curated draft analysis.
-            </p>
-            <p className="mt-4 text-[11px] uppercase tracking-wide text-zinc-500">Open dashboard →</p>
-          </Link>
-
-          {/* 2. History */}
-          <Link
-            href="/history"
-            className="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10 transition hover:-translate-y-0.5 hover:border-red-600 hover:bg-zinc-850"
-          >
-            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-red-600/10 blur-2xl transition group-hover:bg-red-600/20" />
-            <p className="text-xs font-semibold uppercase tracking-wider text-red-400">Archive</p>
-            <h2 className="mt-1 text-xl font-bold text-white">History</h2>
-            <p className="mt-2 text-sm text-zinc-300">
-              Browse all seasons Yahoo returns for your account and jump into any league’s dashboard.
-            </p>
-            <p className="mt-4 text-[11px] uppercase tracking-wide text-zinc-500">Explore seasons →</p>
-          </Link>
-
-          {/* 3. Records / Leaderboard */}
-          <Link
-            href="/records"
-            className="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10 transition hover:-translate-y-0.5 hover:border-red-600 hover:bg-zinc-850"
-          >
-            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-red-600/10 blur-2xl transition group-hover:bg-red-600/20" />
-            <p className="text-xs font-semibold uppercase tracking-wider text-red-400">Hall of Fame</p>
-            <h2 className="mt-1 text-xl font-bold text-white">Championship Records & Leaderboard</h2>
-            <p className="mt-2 text-sm text-zinc-300">
-              All-time champions, top finishes, and fun records. (We’ll wire this to Yahoo data next.)
-            </p>
-            <p className="mt-4 text-[11px] uppercase tracking-wide text-zinc-500">View leaderboard →</p>
-          </Link>
-        </div>
-      </section>
+function LandingSkeleton() {
+  return (
+    <main className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+      <div className="h-40 animate-pulse rounded-3xl bg-zinc-800/80" />
+      <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="h-40 animate-pulse rounded-2xl bg-zinc-800/60" />
+        <div className="h-40 animate-pulse rounded-2xl bg-zinc-800/60" />
+        <div className="h-40 animate-pulse rounded-2xl bg-zinc-800/60" />
+      </div>
     </main>
   );
 }
