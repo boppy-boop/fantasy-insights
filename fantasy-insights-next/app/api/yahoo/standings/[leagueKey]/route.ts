@@ -1,5 +1,4 @@
 // app/api/yahoo/standings/[leagueKey]/route.ts
-import { NextRequest } from "next/server";
 
 export interface TeamStanding {
   teamKey: string;
@@ -14,16 +13,10 @@ export interface TeamStanding {
 export type StandingsResponse = { standings: TeamStanding[] };
 
 /**
- * Returns season-long standings for a league (typed, no `any`).
+ * Returns season-long standings for a league (typed, no `any`, no unused vars).
  * Placeholder returns an empty list; UI shows "No teams found."
  */
-export async function GET(
-  _req: NextRequest,
-  context: { params: { leagueKey: string } }
-): Promise<Response> {
-  const _leagueKey = context.params.leagueKey;
-
+export async function GET(): Promise<Response> {
   const payload: StandingsResponse = { standings: [] };
-
   return Response.json(payload, { status: 200 });
 }

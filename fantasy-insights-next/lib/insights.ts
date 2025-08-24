@@ -1,101 +1,86 @@
 // lib/insights.ts
 import type { Matchup, TeamStanding } from "./yahoo";
 
+/**
+ * What the UI consumes for the "Weekly Notes" tiles.
+ */
 export type WeeklyInsights = {
-  teamOfWeek?: { teamName: string; score: number } | null;
-  blowout?: { home: string; away: string; margin: number } | null;
-  closest?: { home: string; away: string; margin: number } | null;
-  upsets?: Array<{ winner: string; loser: string; winnerSeed: number; loserSeed: number; margin: number }>;
+  /** Highest single-team score across all matchups */
+  teamOfWeek: { teamName: string; score: number } | null;
+  /** Largest winning margin (absolute) across all matchups */
+  blowout: { home: string; away: string; margin: number } | null;
+  /** Smallest winning margin (absolute) across all matchups */
+  closest: { home: string; away: string; margin: number } | null;
 };
 
-function seedMap(standings: TeamStanding[]): Record<string, number> {
-  const m: Record<string, number> = {};
-  for (const t of standings) {
-    if (!t?.teamKey) continue;
-    // Lower rank number = higher seed
-    const seed = Number.isFinite(t.rank) && t.rank > 0 ? t.rank : 999;
-    m[t.teamKey] = seed;
-  }
-  return m;
-}
-
-export function computeWeeklyInsights({
-  matchups,
-  standings,
-}: {
-  matchups: Matchup[];
-  standings: TeamStanding[];
-}): WeeklyInsights {
-  const out: WeeklyInsights = { upsets: [] };
+/**
+ * Compute weekly insights (team of the week, blowout, closest game)
+ * from the given matchups. Standings are accepted for future tiebreakers,
+ * but are not required for the current calculations.
+ */
+export function computeWeeklyInsights(
+  matchups: Matchup[],
+  standings: TeamStanding[]
+): WeeklyInsights {
+  // not used today; kept for future seed/tiebreak logic
+  void standings;
 
   if (!Array.isArray(matchups) || matchups.length === 0) {
-    return out;
+    return { teamOfWeek: null, blowout: null, closest: null };
   }
 
-  // Team of the Week (highest single-team score)
-  let bestTeam: { teamName: string; score: number } | null = null;
-
-  // Blowout / Closest
+  let topTeam: { teamName: string; score: number } | null = null;
   let blowout: { home: string; away: string; margin: number } | null = null;
   let closest: { home: string; away: string; margin: number } | null = null;
 
-  // Upsets (seeded by standings)
-  const seeds = seedMap(standings);
-  const upsets: Array<{ winner: string; loser: string; winnerSeed: number; loserSeed: number; margin: number }> = [];
+  for (let i = 0; i < matchups.length; i++) {
+    const m = matchups[i];
 
-  for (const m of matchups) {
-    const home = m.home;
-    const away = m.away;
+    const homeScore = safeNumber(m.home?.score);
+    const awayScore = safeNumber(m.away?.score);
 
-    // Highest single-team score
-    const pair: Array<{ teamName: string; score: number }> = [
-      { teamName: home.teamName, score: Number(home.score || 0) },
-      { teamName: away.teamName, score: Number(away.score || 0) },
-    ];
-    for (const t of pair) {
-      if (!bestTeam || t.score > bestTeam.score) bestTeam = { teamName: t.teamName, score: t.score };
+    // Team of the Week candidate (check both sides)
+    const localTop =
+      homeScore >= awayScore
+        ? { teamName: m.home.teamName, score: homeScore }
+        : { teamName: m.away.teamName, score: awayScore };
+
+    if (!topTeam || localTop.score > topTeam.score) {
+      topTeam = localTop;
     }
 
-    // Margins
-    const margin = Math.abs(Number(home.score || 0) - Number(away.score || 0));
-    if (!blowout || margin > blowout.margin) {
-      blowout = { home: home.teamName, away: away.teamName, margin };
-    }
-    if (!closest || margin < closest.margin) {
-      closest = { home: home.teamName, away: away.teamName, margin };
-    }
+    // Margin calculations
+    const diff = Math.abs(homeScore - awayScore);
+    const marginPayload = {
+      home: m.home.teamName,
+      away: m.away.teamName,
+      margin: round1(diff),
+    };
 
-    // Upset detection (lower seed number = better team)
-    const homeSeed = seeds[home.teamKey] ?? 999;
-    const awaySeed = seeds[away.teamKey] ?? 999;
-
-    let winner = home;
-    let loser = away;
-    if (Number(away.score || 0) > Number(home.score || 0)) {
-      winner = away;
-      loser = home;
+    // Blowout: max margin
+    if (!blowout || diff > blowout.margin) {
+      blowout = marginPayload;
     }
 
-    const winnerSeed = seeds[winner.teamKey] ?? 999;
-    const loserSeed = seeds[loser.teamKey] ?? 999;
-
-    // Upset if winner had a WORSE seed (higher number) than loser.
-    // Require valid seeds (not 999) and a non-zero margin.
-    if (winnerSeed !== 999 && loserSeed !== 999 && winnerSeed > loserSeed && margin > 0) {
-      upsets.push({
-        winner: winner.teamName,
-        loser: loser.teamName,
-        winnerSeed,
-        loserSeed,
-        margin,
-      });
+    // Closest: min margin
+    if (!closest || diff < closest.margin) {
+      closest = marginPayload;
     }
   }
 
-  out.teamOfWeek = bestTeam;
-  out.blowout = blowout;
-  out.closest = closest;
-  out.upsets = upsets;
+  return {
+    teamOfWeek: topTeam,
+    blowout,
+    closest,
+  };
+}
 
-  return out;
+/* ------------------------ helpers ------------------------ */
+
+function safeNumber(v: unknown): number {
+  return typeof v === "number" && Number.isFinite(v) ? v : 0;
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
 }

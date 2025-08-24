@@ -209,7 +209,7 @@ export default function FantasyDashboard() {
 
         setStandings(s);
         setMatchups(ms);
-        setInsights(computeWeeklyInsights({ matchups: ms, standings: s }));
+        setInsights(computeWeeklyInsights(ms, s));
       } catch (e) {
         if (!active) return;
         setWeekError(
@@ -553,6 +553,20 @@ function PreseasonBlock({ week }: { week?: WeekData }) {
   );
 }
 
+// If these types aren't already imported at the top of this file, add them:
+// import type { Matchup, TeamStanding } from "@/lib/yahoo";
+// import type { WeeklyInsights } from "@/lib/insights";
+// import PlayerHeadshot from "@/components/PlayerHeadshot";
+
+type LiveWeekBlockProps = {
+  weekNumber: number;
+  matchups: Matchup[];
+  standings: TeamStanding[];
+  insights: WeeklyInsights | null;
+  loading: boolean;
+  error: string | null;
+};
+
 function LiveWeekBlock({
   weekNumber,
   matchups,
@@ -560,152 +574,110 @@ function LiveWeekBlock({
   insights,
   loading,
   error,
-}: {
-  weekNumber: number;
-  matchups: Matchup[];
-  standings: TeamStanding[];
-  insights: WeeklyInsights | null;
-  loading: boolean;
-  error: string | null;
-}) {
+}: LiveWeekBlockProps) {
+  // We don't use standings in this block yet; avoid the lint warning.
+  void standings;
+  // (If you also don't use matchups yet, silence that too:)
+  void matchups;
+
   return (
-    <div className="space-y-8">
-      {/* Scoreboard */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white">
-            Week {weekNumber} Scoreboard
-          </h2>
-          <span className="text-xs uppercase tracking-wider text-zinc-400">
-            Live from Yahoo
-          </span>
+    <div className="space-y-6">
+      <h3 className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 text-xl font-semibold text-white shadow-2xl ring-1 ring-black/10">
+        Weekly Notes
+      </h3>
+
+      {error && (
+        <div className="rounded-lg border border-red-800 bg-red-950/40 p-4 text-sm text-red-300">
+          {error}
         </div>
+      )}
 
-        {loading ? (
-          <div className="grid gap-3 md:grid-cols-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-20 animate-pulse rounded-xl bg-zinc-800"
-              />
-            ))}
-          </div>
-        ) : error ? (
-          <div className="rounded-lg border border-amber-900/60 bg-amber-950/40 p-3 text-amber-300">
-            {error}
-          </div>
-        ) : matchups.length === 0 ? (
-          <p className="text-zinc-400">No matchups available for this week.</p>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {matchups.map((m, idx) => (
-              <div
-                key={m.id ?? idx}
-                className="rounded-xl border border-zinc-800 bg-zinc-950 p-4"
-              >
-                <RowTeam name={m.home.teamName} score={m.home.score} />
-                <RowTeam name={m.away.teamName} score={m.away.score} />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Weekly Notes */}
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10">
-        <h3 className="mb-4 text-xl font-semibold text-white">Weekly Notes</h3>
-        {loading ? (
-          <div className="grid gap-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-10 animate-pulse rounded-md bg-zinc-800" />
-            ))}
-          </div>
-        ) : !insights ? (
-          <p className="text-zinc-400">No notes yet.</p>
-        ) : (
-          (() => {
-            const { teamOfWeek, blowout, closest } = insights;
-            return (
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
-                  <p className="text-xs uppercase tracking-wider text-zinc-400">
-                    Team of the Week
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-24 animate-pulse rounded-lg bg-zinc-800" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {/* Team of the Week */}
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+            <p className="text-xs uppercase tracking-wider text-zinc-400">
+              Team of the Week
+            </p>
+            {insights?.teamOfWeek ? (
+              <div className="mt-2 flex items-center gap-3">
+                <PlayerHeadshot name={insights.teamOfWeek.teamName} size={40} />
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    {insights.teamOfWeek.teamName}
                   </p>
-                  {teamOfWeek ? (
-                    <div className="mt-2 flex items-center gap-3">
-                      <PlayerHeadshot name={teamOfWeek.teamName} size={40} />
-                      <div>
-                        <p className="text-sm font-semibold text-white">
-                          {teamOfWeek.teamName}
-                        </p>
-                        <p className="text-xs text-zinc-400">
-                          {teamOfWeek.score.toFixed(1)} pts
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-zinc-400">—</p>
-                  )}
-                </div>
-
-                <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
-                  <p className="text-xs uppercase tracking-wider text-zinc-400">
-                    Blowout
+                  <p className="text-xs text-zinc-400">
+                    {insights.teamOfWeek.score.toFixed(1)} pts
                   </p>
-                  {blowout ? (
-                    <p className="mt-1 text-sm text-zinc-300">
-                      {blowout.home} vs {blowout.away} •{" "}
-                      <span className="text-red-300">
-                        {blowout.margin.toFixed(1)} pts
-                      </span>
-                    </p>
-                  ) : (
-                    <p className="text-zinc-400">—</p>
-                  )}
-                </div>
-
-                <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
-                  <p className="text-xs uppercase tracking-wider text-zinc-400">
-                    Closest Game
-                  </p>
-                  {closest ? (
-                    <p className="mt-1 text-sm text-zinc-300">
-                      {closest.home} vs {closest.away} •{" "}
-                      <span className="text-emerald-300">
-                        {closest.margin.toFixed(1)} pts
-                      </span>
-                    </p>
-                  ) : (
-                    <p className="text-zinc-400">—</p>
-                  )}
                 </div>
               </div>
-            );
-          })()
-        )}
-      </div>
+            ) : (
+              <p className="text-zinc-400">—</p>
+            )}
+          </div>
 
-      {/* Waiver-Wire Steals & Overpays (placeholder) */}
+          {/* Blowout */}
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+            <p className="text-xs uppercase tracking-wider text-zinc-400">
+              Blowout
+            </p>
+            {insights?.blowout ? (
+              <p className="mt-1 text-sm text-zinc-300">
+                {insights.blowout.home} vs {insights.blowout.away} •{" "}
+                <span className="text-red-300">
+                  {insights.blowout.margin.toFixed(1)} pts
+                </span>
+              </p>
+            ) : (
+              <p className="text-zinc-400">—</p>
+            )}
+          </div>
+
+          {/* Closest Game */}
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+            <p className="text-xs uppercase tracking-wider text-zinc-400">
+              Closest Game
+            </p>
+            {insights?.closest ? (
+              <p className="mt-1 text-sm text-zinc-300">
+                {insights.closest.home} vs {insights.closest.away} •{" "}
+                <span className="text-emerald-300">
+                  {insights.closest.margin.toFixed(1)} pts
+                </span>
+              </p>
+            ) : (
+              <p className="text-zinc-400">—</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Waiver-Wire Steals & Overpays — placeholder (until Yahoo transactions are wired) */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10">
-        <h3 className="mb-1 text-xl font-semibold text-white">
-          Waiver-Wire Steals & Overpays
-        </h3>
-        <p className="mb-4 text-sm text-zinc-400">
+        <h4 className="mb-3 text-lg font-semibold text-white">
+          Steals &amp; Overpays
+        </h4>
+        <p className="text-xs text-zinc-400">
           Coming next: we’ll analyze weekly transactions to auto-tag best value
-          adds and dubious bids.
+          and dubious bids.
         </p>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-lg border border-green-900/40 bg-green-950/20 p-4">
-            <p className="text-sm font-semibold text-green-300">Top Steals</p>
-            <p className="mt-1 text-sm text-zinc-400">
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="rounded-lg border border-emerald-800 bg-emerald-950/20 p-4">
+            <p className="text-sm font-semibold text-emerald-300">Top Steals</p>
+            <p className="mt-2 text-sm text-zinc-400">
               No data yet for Week {weekNumber}.
             </p>
           </div>
-          <div className="rounded-lg border border-red-900/40 bg-red-950/20 p-4">
-            <p className="text-sm font-semibold text-red-300">
-              Questionable Overpays
-            </p>
-            <p className="mt-1 text-sm text-zinc-400">
+          <div className="rounded-lg border border-red-800 bg-red-950/20 p-4">
+            <p className="text-sm font-semibold text-red-300">Top Overpays</p>
+            <p className="mt-2 text-sm text-zinc-400">
               No data yet for Week {weekNumber}.
             </p>
           </div>
@@ -714,6 +686,8 @@ function LiveWeekBlock({
     </div>
   );
 }
+
+
 
 function RowTeam({ name, score }: { name: string; score: number }) {
   return (

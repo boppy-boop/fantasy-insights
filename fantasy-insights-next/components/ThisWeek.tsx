@@ -17,11 +17,14 @@ type Props = {
 export default function ThisWeek({
   weekNumber,
   matchups,
-  standings, // reserved for future use (ties, streaks, etc.)
+  standings,
   insights,
   loading,
   error,
 }: Props) {
+  // Not used in the UI block yet; avoid ESLint unused-var warning.
+  void standings;
+
   return (
     <div className="space-y-8">
       {/* Scoreboard */}

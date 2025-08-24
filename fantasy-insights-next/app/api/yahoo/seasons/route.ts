@@ -1,13 +1,11 @@
 // app/api/yahoo/seasons/route.ts
-import { NextRequest } from "next/server";
 
 export type SeasonsResponse = { seasons: string[] };
 
 /**
  * Returns a recent range of seasons with 2025 guaranteed.
- * Your UI only needs the shape { seasons: string[] }.
  */
-export async function GET(_req: NextRequest): Promise<Response> {
+export async function GET(): Promise<Response> {
   const current = 2025;
   const years: number[] = [];
   for (let y = current; y >= current - 10; y--) years.push(y);
