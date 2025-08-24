@@ -1,45 +1,12 @@
-// app/api/yahoo/standings/[leagueKey]/[week]/route.ts
-import { NextRequest } from "next/server";
+// app/api/yahoo/[leagueKey]/[week]/route.ts
 
-export interface TeamStanding {
-  teamKey: string;
-  teamName: string;
-  wins: number;
-  losses: number;
-  ties: number;
-  pointsFor?: number;
-  pointsAgainst?: number;
-}
-
-export interface MatchSide {
-  teamKey: string;
-  teamName: string;
-  score: number;
-}
-
-export interface Matchup {
-  id?: string;
-  home: MatchSide;
-  away: MatchSide;
-}
-
-export type WeeklyResponse = {
-  standings: TeamStanding[];
-  matchups: Matchup[];
-};
+export type WeekMetaResponse = { ok: true };
 
 /**
- * Returns weekly standings+matchups for a league (typed, no `any`).
- * Placeholder returns empty arrays; UI handles this gracefully.
+ * Placeholder route for league/week meta.
+ * Note: No request/context args (avoids Next.js 15 second-arg typing issue).
  */
-export async function GET(
-  _req: NextRequest,
-  context: { params: { leagueKey: string; week: string } }
-): Promise<Response> {
-  const _leagueKey = context.params.leagueKey;
-  const _weekNum = Number(context.params.week) || 0;
-
-  const payload: WeeklyResponse = { standings: [], matchups: [] };
-
+export async function GET(): Promise<Response> {
+  const payload: WeekMetaResponse = { ok: true };
   return Response.json(payload, { status: 200 });
 }

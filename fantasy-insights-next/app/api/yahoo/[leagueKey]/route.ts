@@ -1,5 +1,4 @@
 // app/api/yahoo/[leagueKey]/route.ts
-import { NextRequest } from "next/server";
 
 export interface LeagueMeta {
   startWeek: number;
@@ -10,15 +9,10 @@ export interface LeagueMeta {
 export type LeagueMetaResponse = LeagueMeta;
 
 /**
- * Returns league meta (typed, no `any`).
+ * Returns league meta (typed, no `any`, no unused vars).
  * Placeholder keeps site in preseason until you wire Yahoo data.
  */
-export async function GET(
-  _req: NextRequest,
-  context: { params: { leagueKey: string } }
-): Promise<Response> {
-  const _leagueKey = context.params.leagueKey;
-
+export async function GET(): Promise<Response> {
   const payload: LeagueMetaResponse = {
     startWeek: 1,
     endWeek: 17,

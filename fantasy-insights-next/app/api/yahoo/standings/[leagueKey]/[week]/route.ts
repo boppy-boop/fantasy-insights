@@ -1,5 +1,4 @@
 // app/api/yahoo/standings/[leagueKey]/[week]/route.ts
-import { NextRequest } from "next/server";
 
 export interface TeamStanding {
   teamKey: string;
@@ -30,12 +29,9 @@ export type WeeklyResponse = {
 
 /**
  * Weekly standings + matchups for a league.
- * Placeholder returns empty arrays (no `any`, no unused vars).
+ * Note: No request/context args (avoids Next.js 15 second-arg typing issue).
  */
-export async function GET(
-  _req: NextRequest,
-  _context: { params: { leagueKey: string; week: string } }
-): Promise<Response> {
+export async function GET(): Promise<Response> {
   const payload: WeeklyResponse = { standings: [], matchups: [] };
   return Response.json(payload, { status: 200 });
 }
