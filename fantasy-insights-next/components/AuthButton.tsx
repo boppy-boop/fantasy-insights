@@ -1,39 +1,48 @@
 // components/AuthButton.tsx
 "use client";
-import { useSession, signIn, signOut } from "next-auth/react";
+
+import { usePathname } from "next/navigation";
+import { signIn, signOut, useSession } from "next-auth/react";
 
 export default function AuthButton() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
+  const pathname = usePathname();
+  const callbackUrl = pathname || "/";
 
   if (status === "loading") {
     return (
       <button
+        className="rounded-lg bg-zinc-800 px-4 py-2 text-sm text-zinc-300"
         disabled
-        className="rounded-xl bg-zinc-800 px-4 py-2 text-zinc-300"
-        aria-busy="true"
       >
-        Checking…
+        Loading…
       </button>
     );
   }
 
-  if (status === "authenticated") {
+  if (!session) {
     return (
       <button
-        onClick={() => signOut()}
-        className="rounded-xl bg-zinc-800 px-4 py-2 text-zinc-200 hover:bg-zinc-700"
+        onClick={() => signIn(undefined, { callbackUrl })}
+        className="rounded-xl bg-purple-700 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-600"
+      >
+        Sign in
+      </button>
+    );
+  }
+
+  const firstName =
+    (session.user?.name?.split(" ")[0] ?? "Manager").trim();
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-sm text-zinc-300">Hi, {firstName}</span>
+      <button
+        onClick={() => signOut({ callbackUrl: "/" })}
+        className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
       >
         Sign out
       </button>
-    );
-  }
-
-  return (
-    <button
-      onClick={() => signIn("yahoo")}
-      className="rounded-xl bg-indigo-600 px-4 py-2 text-white shadow hover:bg-indigo-500"
-    >
-      Sign in with Yahoo
-    </button>
+    </div>
   );
 }
