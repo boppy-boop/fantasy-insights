@@ -1,159 +1,261 @@
+// app/history/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
-import { weeks2025 } from "@/lib/season2025";
-
-type SeasonOption = { value: string; label: string; available: boolean };
-
-const seasons: SeasonOption[] = [
-  { value: "2025", label: "2025", available: true },
-  // Add more seasons here as you wire Yahoo history:
-  { value: "2024", label: "2024", available: false },
-  { value: "2023", label: "2023", available: false },
-];
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import PlayerHeadshot from "@/components/PlayerHeadshot";
+import {
+  fetchSeasons,
+  fetchLeaguesBySeason,
+  fetchStandings,
+  type YahooLeague,
+  type TeamStanding,
+} from "@/lib/yahoo";
 
 export default function HistoryPage() {
   const [season, setSeason] = useState<string>("2025");
+  const [seasons, setSeasons] = useState<string[]>(["2025"]);
+  const [loadingSeasons, setLoadingSeasons] = useState(false);
 
-  const preseason = useMemo(() => {
-    if (season !== "2025") return null;
-    return weeks2025.find((w) => w.id === "preseason") ?? null;
+  const [leagues, setLeagues] = useState<YahooLeague[]>([]);
+  const [leagueKey, setLeagueKey] = useState<string>("");
+  const [loadingLeagues, setLoadingLeagues] = useState(false);
+  const [leaguesError, setLeaguesError] = useState<string | null>(null);
+
+  const [standings, setStandings] = useState<TeamStanding[]>([]);
+  const [loadingStandings, setLoadingStandings] = useState(false);
+  const [standingsError, setStandingsError] = useState<string | null>(null);
+
+  // Load seasons (ensure 2025 present)
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoadingSeasons(true);
+        const s = await fetchSeasons();
+        if (!active) return;
+        const merged = Array.from(new Set(["2025", ...s])).sort((a, b) => Number(b) - Number(a));
+        setSeasons(merged);
+        if (!merged.includes(season)) setSeason(merged[0] ?? "2025");
+      } finally {
+        if (active) setLoadingSeasons(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load leagues when season changes
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLeaguesError(null);
+        setLoadingLeagues(true);
+        setLeagues([]);
+        setLeagueKey("");
+        const ls = await fetchLeaguesBySeason(season);
+        if (!active) return;
+        setLeagues(ls);
+        if (ls[0]?.leagueKey) setLeagueKey(ls[0].leagueKey);
+      } catch (e) {
+        if (!active) return;
+        setLeaguesError(e instanceof Error ? e.message : "Failed to load leagues");
+      } finally {
+        if (active) setLoadingLeagues(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, [season]);
+
+  // Load standings when league changes
+  useEffect(() => {
+    const ac = new AbortController();
+    let active = true;
+    (async () => {
+      if (!leagueKey) {
+        setStandings([]);
+        return;
+      }
+      try {
+        setStandingsError(null);
+        setLoadingStandings(true);
+        const res = await fetchStandings({ season, leagueKey, signal: ac.signal });
+        if (!active) return;
+        setStandings(res.standings ?? []);
+      } catch (e) {
+        if (!active) return;
+        setStandingsError(e instanceof Error ? e.message : "Failed to load standings");
+      } finally {
+        if (active) setLoadingStandings(false);
+      }
+    })();
+    return () => {
+      active = false;
+      ac.abort();
+    };
+  }, [season, leagueKey]);
+
+  const champion = useMemo(() => {
+    if (!standings || standings.length === 0) return null;
+    return [...standings].sort((a, b) => (a.rank || 999) - (b.rank || 999))[0] ?? null;
+  }, [standings]);
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-zinc-950">
+      {/* Header */}
       <section className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-black">
         <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
-          <p className="text-sm uppercase tracking-widest text-red-400">League Archives</p>
-          <div className="mt-1 flex flex-wrap items-end justify-between gap-4">
-            <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-              History
-            </h1>
-            <div className="flex items-center gap-2">
-              <label htmlFor="season" className="text-sm text-zinc-300">
-                Season
-              </label>
-              <select
-                id="season"
-                value={season}
-                onChange={(e) => setSeason(e.target.value)}
-                className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-700"
-              >
-                {seasons.map((s) => (
-                  <option key={s.value} value={s.value} disabled={!s.available}>
-                    {s.label} {s.available ? "" : "— (coming soon)"}
-                  </option>
-                ))}
-              </select>
+          <div className="flex items-baseline justify-between gap-4">
+            <div>
+              <p className="text-sm uppercase tracking-widest text-red-400">Archive</p>
+              <h1 className="mt-1 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+                League History
+              </h1>
+              <p className="mt-3 max-w-2xl text-lg leading-7 text-zinc-300">
+                Jump into any season and league, preview standings, then open the dashboard.
+              </p>
             </div>
           </div>
-          <p className="mt-3 max-w-2xl text-lg leading-7 text-zinc-300">
-            Browse preseason narratives, draft steals & overpays, and early strength-of-schedule notes for past seasons.
-          </p>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 pb-12 lg:px-8">
-        {season !== "2025" ? (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 text-zinc-300">
-            Historical data for {season} will appear here once Yahoo history is connected.
+      {/* Controls */}
+      <section className="mx-auto max-w-7xl px-6 pb-8 lg:px-8">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <label htmlFor="season" className="block text-xs font-semibold uppercase tracking-wide text-zinc-400">
+              Season
+            </label>
+            <select
+              id="season"
+              value={season}
+              onChange={(e) => setSeason(e.target.value)}
+              className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-800 px-2 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-red-600"
+              disabled={loadingSeasons}
+            >
+              {seasons.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+            {loadingSeasons && <p className="mt-1 text-[11px] text-zinc-500">Loading seasons…</p>}
           </div>
-        ) : !preseason ? (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 text-zinc-300">
-            No preseason content found for 2025.
+
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:col-span-2">
+            <label htmlFor="league" className="block text-xs font-semibold uppercase tracking-wide text-zinc-400">
+              League
+            </label>
+            <div className="mt-1 flex gap-2">
+              <select
+                id="league"
+                value={leagueKey}
+                onChange={(e) => setLeagueKey(e.target.value)}
+                className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-2 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-red-600"
+                disabled={loadingLeagues || leagues.length === 0}
+              >
+                {leagues.length === 0 ? (
+                  <option value="" disabled>
+                    {leaguesError ? "Sign in to Yahoo & refresh" : "No leagues found"}
+                  </option>
+                ) : (
+                  leagues.map((l) => (
+                    <option key={l.leagueKey} value={l.leagueKey}>
+                      {l.name}
+                    </option>
+                  ))
+                )}
+              </select>
+
+              <Link
+                href={
+                  leagueKey
+                    ? `/fantasy?season=${encodeURIComponent(season)}&leagueKey=${encodeURIComponent(leagueKey)}&week=0`
+                    : "#"
+                }
+                aria-disabled={!leagueKey}
+                className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold ${
+                  leagueKey
+                    ? "bg-red-600 text-white hover:bg-red-500"
+                    : "cursor-not-allowed bg-zinc-800 text-zinc-500"
+                }`}
+              >
+                Open Dashboard
+              </Link>
+            </div>
+            {loadingLeagues && <p className="mt-1 text-[11px] text-zinc-500">Loading leagues…</p>}
+            {leaguesError && <p className="mt-1 text-[11px] text-amber-400">{leaguesError}</p>}
           </div>
-        ) : (
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Power Rankings snapshot */}
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10">
-              <h2 className="text-lg font-bold text-white">Preseason Power Top 10</h2>
-              <ol className="mt-3 space-y-2 text-sm text-zinc-200">
-                {preseason.content.powerRankings.slice(0, 10).map((t) => (
-                  <li key={t.rank} className="flex items-center justify-between">
-                    <span>
-                      #{t.rank} <span className="font-semibold">{t.team}</span>
-                    </span>
-                    {t.likelihood && (
-                      <span className="text-xs text-zinc-400">{t.likelihood}</span>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            </div>
+        </div>
+      </section>
 
-            {/* Draft Steals */}
-            <div className="rounded-2xl border border-emerald-900/60 bg-emerald-950/40 p-6 shadow-2xl ring-1 ring-black/10">
-              <h2 className="text-lg font-bold text-emerald-300">Draft Steals (Top 5)</h2>
-              <ul className="mt-3 space-y-3 text-sm text-emerald-100">
-                {preseason.content.stealsOverpays.steals.slice(0, 5).map((s, i) => (
-                  <li key={`${s.player}-${i}`} className="flex items-start gap-3">
-                    <img
-                      src={s.image}
-                      alt={s.player}
-                      className="h-10 w-10 rounded-full border border-emerald-800 object-cover"
-                      onError={(ev) => {
-                        const el = ev.currentTarget as HTMLImageElement;
-                        el.style.display = "none";
-                      }}
-                    />
-                    <div>
-                      <p className="font-semibold">
-                        {s.player} ({s.cost}) — {s.team}
-                      </p>
-                      <p className="text-zinc-300">{s.reason}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Overpays */}
-            <div className="rounded-2xl border border-red-900/60 bg-red-950/40 p-6 shadow-2xl ring-1 ring-black/10">
-              <h2 className="text-lg font-bold text-red-300">Draft Overpays (Top 5)</h2>
-              <ul className="mt-3 space-y-3 text-sm text-red-100">
-                {preseason.content.stealsOverpays.overpays.slice(0, 5).map((o, i) => (
-                  <li key={`${o.player}-${i}`} className="flex items-start gap-3">
-                    <img
-                      src={o.image}
-                      alt={o.player}
-                      className="h-10 w-10 rounded-full border border-red-800 object-cover"
-                      onError={(ev) => {
-                        const el = ev.currentTarget as HTMLImageElement;
-                        el.style.display = "none";
-                      }}
-                    />
-                    <div>
-                      <p className="font-semibold">
-                        {o.player} ({o.cost}) — {o.team}
-                      </p>
-                      <p className="text-zinc-300">{o.reason}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* SoS grid */}
-            <div className="lg:col-span-3 rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10">
-              <h2 className="text-lg font-bold text-white">Strength of Schedule Highlights</h2>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {preseason.content.strengthOfSchedule.map((s) => (
-                  <div key={s.team} className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
-                    <p className="font-semibold text-zinc-100">{s.team}</p>
-                    <p className="text-zinc-300">
-                      Grade: <span className="font-bold text-emerald-300">{s.grade}</span>
-                    </p>
-                    {s.biggestGame && (
-                      <p className="text-sm text-zinc-400">
-                        🔥 {s.biggestGame.week} vs {s.biggestGame.opponent}
-                      </p>
-                    )}
-                  </div>
-                ))}
+      {/* Standings Preview */}
+      <section className="mx-auto max-w-7xl px-6 pb-16 lg:px-8">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-white">Standings Preview</h2>
+            {champion && (
+              <div className="hidden items-center gap-2 rounded-lg border border-yellow-700/50 bg-yellow-900/20 px-3 py-1.5 text-sm ring-1 ring-yellow-400/20 sm:flex">
+                <span className="text-yellow-300">Champion:</span>
+                <span className="font-medium text-white">{champion.teamName}</span>
               </div>
-            </div>
+            )}
           </div>
-        )}
+
+          {loadingStandings ? (
+            <div className="grid gap-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-10 animate-pulse rounded-md bg-zinc-800" />
+              ))}
+            </div>
+          ) : standingsError ? (
+            <div className="rounded-lg border border-amber-900/60 bg-amber-950/40 p-3 text-amber-300">
+              {standingsError}
+            </div>
+          ) : standings.length === 0 ? (
+            <p className="text-zinc-400">No standings available for this league.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-zinc-800 text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wide text-zinc-400">
+                    <th className="px-3 py-2">Rank</th>
+                    <th className="px-3 py-2">Team</th>
+                    <th className="px-3 py-2">W-L-T</th>
+                    <th className="px-3 py-2">PF</th>
+                    <th className="px-3 py-2">PA</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800">
+                  {[...standings]
+                    .sort((a, b) => (a.rank || 999) - (b.rank || 999))
+                    .map((t) => (
+                      <tr key={t.teamKey} className="hover:bg-zinc-800/40">
+                        <td className="px-3 py-2 text-zinc-300">#{t.rank}</td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-3">
+                            <PlayerHeadshot name={t.teamName} size={36} rounded="lg" />
+                            <span className="font-medium text-white">{t.teamName}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-zinc-300">
+                          {t.wins}-{t.losses}
+                          {t.ties ? `-${t.ties}` : ""}
+                        </td>
+                        <td className="px-3 py-2 text-zinc-300">{t.pointsFor.toFixed(1)}</td>
+                        <td className="px-3 py-2 text-zinc-300">{t.pointsAgainst.toFixed(1)}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </section>
     </main>
   );

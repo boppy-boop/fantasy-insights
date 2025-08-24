@@ -1,140 +1,168 @@
+// components/ThisWeek.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  fetchMatchups,
-  fetchStandings,
-  computeWeeklyInsights,
-  type MatchupsResponse,
-  type StandingsResponse,
-  type WeeklyInsights,
-} from "@/lib/yahoo";
+import type { Matchup, TeamStanding } from "../lib/yahoo";
+import type { WeeklyInsights } from "../lib/insights";
+import PlayerHeadshot from "./PlayerHeadshot";
 
 type Props = {
-  season: string;
-  leagueKey?: string;
-  week: number; // 0 = preseason, 1..17 = regular season
+  weekNumber: number;
+  matchups: Matchup[];
+  standings: TeamStanding[];
+  insights: WeeklyInsights | null;
+  loading: boolean;
+  error: string | null;
 };
 
-export default function ThisWeek({ season, leagueKey, week }: Props) {
-  const [standings, setStandings] = useState<StandingsResponse | null>(null);
-  const [matchups, setMatchups] = useState<MatchupsResponse | null>(null);
-  const [insights, setInsights] = useState<WeeklyInsights | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    const ac = new AbortController();
-
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [st, ma] = await Promise.all([
-          fetchStandings({ season, leagueKey, signal: ac.signal }),
-          fetchMatchups({ season, leagueKey, week, signal: ac.signal }),
-        ]);
-        if (!active) return;
-        setStandings(st);
-        setMatchups(ma);
-        setInsights(computeWeeklyInsights(ma.matchups, st.standings));
-      } catch (e) {
-        if (!active) return;
-        setError(e instanceof Error ? e.message : "Failed to load weekly insights");
-        setStandings(null);
-        setMatchups(null);
-        setInsights(null);
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-
-    return () => {
-      active = false;
-      ac.abort();
-    };
-  }, [season, leagueKey, week]);
-
+export default function ThisWeek({
+  weekNumber,
+  matchups,
+  standings, // reserved for future use (ties, streaks, etc.)
+  insights,
+  loading,
+  error,
+}: Props) {
   return (
-    <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-xl font-bold text-white">
-          This Week at a Glance {week === 0 ? "(Preseason)" : `(Week ${week})`}
-        </h3>
-        <span className="rounded-md bg-white/5 px-2 py-0.5 text-xs font-semibold text-zinc-300 ring-1 ring-white/10">
-          Season {season}
-        </span>
+    <div className="space-y-8">
+      {/* Scoreboard */}
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white">
+            Week {weekNumber} Scoreboard
+          </h2>
+          <span className="text-xs uppercase tracking-wider text-zinc-400">
+            Live from Yahoo
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-20 animate-pulse rounded-xl bg-zinc-800" />
+            ))}
+          </div>
+        ) : error ? (
+          <div className="rounded-lg border border-amber-900/60 bg-amber-950/40 p-3 text-amber-300">
+            {error}
+          </div>
+        ) : matchups.length === 0 ? (
+          <p className="text-zinc-400">No matchups available for this week.</p>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            {matchups.map((m, idx) => (
+              <div
+                key={m.id ?? idx}
+                className="rounded-xl border border-zinc-800 bg-zinc-950 p-4"
+              >
+                <RowTeam name={m.home.teamName} score={m.home.score} />
+                <RowTeam name={m.away.teamName} score={m.away.score} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* Weekly Notes */}
+      <WeeklyNotes insights={insights} loading={loading} />
+    </div>
+  );
+}
+
+function RowTeam({ name, score }: { name: string; score: number }) {
+  return (
+    <div className="flex items-center justify-between py-1.5">
+      <div className="flex items-center gap-3">
+        <PlayerHeadshot name={name} size={32} rounded="lg" />
+        <span className="font-medium text-white">{name}</span>
+      </div>
+      <span className="text-sm font-semibold text-zinc-200">
+        {score.toFixed(1)}
+      </span>
+    </div>
+  );
+}
+
+/* ------------ WeeklyNotes (inlined to keep this file self-contained) ------------ */
+
+function WeeklyNotes({
+  insights,
+  loading,
+}: {
+  insights: WeeklyInsights | null;
+  loading: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10">
+      <h3 className="mb-4 text-xl font-semibold text-white">Weekly Notes</h3>
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-xl bg-zinc-800" />
+            <div key={i} className="h-10 animate-pulse rounded-md bg-zinc-800" />
           ))}
         </div>
-      ) : error ? (
-        <div className="rounded-xl border border-amber-900/60 bg-amber-950/40 p-4 text-sm text-amber-300">
-          Weekly insights unavailable. {error}
-        </div>
-      ) : !insights || !standings || !matchups ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-300">
-          No data for this week yet.
-        </div>
+      ) : !insights ? (
+        <p className="text-zinc-400">No notes yet.</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-3">
-          {/* Team of the Week */}
-          <div className="rounded-xl border border-emerald-900/60 bg-emerald-950/40 p-4">
-            <h4 className="text-sm font-semibold text-emerald-300">Team of the Week</h4>
-            {insights.teamOfWeek ? (
-              <p className="mt-1 text-zinc-200">
-                {insights.teamOfWeek.teamName}{" "}
-                <span className="text-emerald-300 font-semibold">
-                  {insights.teamOfWeek.score.toFixed(1)}
-                </span>
-              </p>
-            ) : (
-              <p className="mt-1 text-zinc-400 text-sm">No standout performance yet.</p>
-            )}
-          </div>
+        (() => {
+          const { teamOfWeek, blowout, closest } = insights;
+          return (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+                <p className="text-xs uppercase tracking-wider text-zinc-400">
+                  Team of the Week
+                </p>
+                {teamOfWeek ? (
+                  <div className="mt-2 flex items-center gap-3">
+                    <PlayerHeadshot name={teamOfWeek.teamName} size={40} />
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        {teamOfWeek.teamName}
+                      </p>
+                      <p className="text-xs text-zinc-400">
+                        {teamOfWeek.score.toFixed(1)} pts
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-zinc-400">—</p>
+                )}
+              </div>
 
-          {/* Blowout */}
-          <div className="rounded-xl border border-fuchsia-900/60 bg-fuchsia-950/40 p-4">
-            <h4 className="text-sm font-semibold text-fuchsia-300">Blowout</h4>
-            {insights.blowout ? (
-              <p className="mt-1 text-zinc-200">
-                {insights.blowout.matchup.home.teamName} vs {insights.blowout.matchup.away.teamName} ·{" "}
-                <span className="text-fuchsia-300 font-semibold">
-                  +{insights.blowout.margin.toFixed(1)}
-                </span>
-              </p>
-            ) : (
-              <p className="mt-1 text-zinc-400 text-sm">No blowouts recorded.</p>
-            )}
-          </div>
+              <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+                <p className="text-xs uppercase tracking-wider text-zinc-400">
+                  Blowout
+                </p>
+                {blowout ? (
+                  <p className="mt-1 text-sm text-zinc-300">
+                    {blowout.home} vs {blowout.away} •{" "}
+                    <span className="text-red-300">
+                      {blowout.margin.toFixed(1)} pts
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-zinc-400">—</p>
+                )}
+              </div>
 
-          {/* Upsets */}
-          <div className="rounded-xl border border-amber-900/60 bg-amber-950/40 p-4">
-            <h4 className="text-sm font-semibold text-amber-300">Upsets</h4>
-            {insights.upsets.length > 0 ? (
-              <ul className="mt-1 space-y-1 text-sm text-zinc-200">
-                {insights.upsets.map((u, i) => (
-                  <li key={i}>
-                    {u.matchup.home.teamName} vs {u.matchup.away.teamName} ·{" "}
-                    <span className="text-amber-300">winner seed {u.winnerSeed}</span>{" "}
-                    <span className="text-zinc-400">over</span>{" "}
-                    <span className="text-amber-300">seed {u.loserSeed}</span>{" "}
-                    <span className="text-zinc-400">by</span>{" "}
-                    <span className="text-amber-300">+{u.margin.toFixed(1)}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-1 text-zinc-400 text-sm">No upsets this week.</p>
-            )}
-          </div>
-        </div>
+              <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+                <p className="text-xs uppercase tracking-wider text-zinc-400">
+                  Closest Game
+                </p>
+                {closest ? (
+                  <p className="mt-1 text-sm text-zinc-300">
+                    {closest.home} vs {closest.away} •{" "}
+                    <span className="text-emerald-300">
+                      {closest.margin.toFixed(1)} pts
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-zinc-400">—</p>
+                )}
+              </div>
+            </div>
+          );
+        })()
       )}
-    </section>
+    </div>
   );
 }

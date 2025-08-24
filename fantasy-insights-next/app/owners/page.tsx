@@ -1,245 +1,345 @@
+// app/owners/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { fetchStandings, type StandingsResponse } from "@/lib/yahoo";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSession, signIn } from "next-auth/react";
 
-type SortKey = "seed" | "winPct" | "pointsFor" | "pointsAgainst" | "manager";
+import PlayerHeadshot from "@/components/PlayerHeadshot";
+
+import {
+  fetchSeasons,
+  fetchLeaguesBySeason,
+  fetchStandings,
+  type YahooLeague,
+  type TeamStanding,
+} from "../../lib/yahoo";
+
+// ---------- helpers (no any) ----------
+
+function getManagerName(team: unknown): string | undefined {
+  if (typeof team !== "object" || team === null) return undefined;
+  const t = team as Record<string, unknown>;
+
+  // team.manager?.{name|nickname}
+  const manager = t["manager"];
+  if (manager && typeof manager === "object") {
+    const m = manager as Record<string, unknown>;
+    const byName =
+      (typeof m["name"] === "string" && (m["name"] as string)) ||
+      (typeof m["nickname"] === "string" && (m["nickname"] as string));
+    if (byName) return byName;
+  }
+
+  // team.managers?.[0]?.{name|nickname}
+  const managers = t["managers"];
+  if (Array.isArray(managers) && managers.length > 0) {
+    const m = managers[0];
+    if (typeof m === "object" && m !== null) {
+      const r = m as Record<string, unknown>;
+      const byName =
+        (typeof r["name"] === "string" && (r["name"] as string)) ||
+        (typeof r["nickname"] === "string" && (r["nickname"] as string));
+      if (byName) return byName;
+    }
+  }
+
+  // team.owner?.{name|nickname}
+  const owner = t["owner"];
+  if (owner && typeof owner === "object") {
+    const o = owner as Record<string, unknown>;
+    const byName =
+      (typeof o["name"] === "string" && (o["name"] as string)) ||
+      (typeof o["nickname"] === "string" && (o["nickname"] as string));
+    if (byName) return byName;
+  }
+
+  return undefined;
+}
+
+function clamp(n: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+// ---------- page ----------
 
 export default function OwnersPage() {
-  const [season] = useState<string>("2025");
-  const [leagueKey] = useState<string | undefined>(undefined); // wire your real key if needed
-  const [data, setData] = useState<StandingsResponse | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: session, status } = useSession();
+  const search = useSearchParams();
+  const router = useRouter();
 
-  const [q, setQ] = useState<string>("");
-  const [sortKey, setSortKey] = useState<SortKey>("seed");
-  const [descending, setDescending] = useState<boolean>(false);
+  // URL state
+  const initialSeason = search.get("season") ?? "2025";
+  const initialLeagueKey = search.get("leagueKey") ?? "";
 
+  const [season, setSeason] = useState<string>(initialSeason);
+  const [leagueKey, setLeagueKey] = useState<string>(initialLeagueKey);
+
+  // Lists
+  const [seasons, setSeasons] = useState<string[]>(["2025"]);
+  const [leagues, setLeagues] = useState<YahooLeague[]>([]);
+  const [teams, setTeams] = useState<TeamStanding[]>([]);
+
+  // UI state
+  const [loadingSeasons, setLoadingSeasons] = useState(false);
+  const [loadingLeagues, setLoadingLeagues] = useState(false);
+  const [loadingTeams, setLoadingTeams] = useState(false);
+
+  const [errorLeagues, setErrorLeagues] = useState<string | null>(null);
+  const [errorTeams, setErrorTeams] = useState<string | null>(null);
+
+  // keep URL in sync (no week on this page)
   useEffect(() => {
-    let active = true;
-    const ac = new AbortController();
+    const q = new URLSearchParams();
+    if (season) q.set("season", season);
+    if (leagueKey) q.set("leagueKey", leagueKey);
+    router.replace(`/owners?${q.toString()}`);
+  }, [season, leagueKey, router]);
+
+  // seasons
+  useEffect(() => {
+    let live = true;
     (async () => {
       try {
-        const res = await fetchStandings({ season, leagueKey, signal: ac.signal });
-        if (!active) return;
-        setData(res);
-      } catch (e) {
-        if (!active) return;
-        setError(e instanceof Error ? e.message : "Failed to load owners");
+        setLoadingSeasons(true);
+        const s = await fetchSeasons();
+        if (!live) return;
+        const merged = Array.from(new Set(["2025", ...s])).sort(
+          (a, b) => Number(b) - Number(a)
+        );
+        setSeasons(merged);
+        if (!merged.includes(season)) setSeason(merged[0] ?? "2025");
       } finally {
-        if (active) setLoading(false);
+        if (live) setLoadingSeasons(false);
       }
     })();
     return () => {
-      active = false;
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // leagues (requires auth)
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        setErrorLeagues(null);
+        setLoadingLeagues(true);
+        setLeagues([]);
+        setTeams([]);
+
+        if (status !== "authenticated") return;
+
+        const ls = await fetchLeaguesBySeason(season);
+        if (!live) return;
+
+        setLeagues(ls);
+        if (!ls.find((l) => l.leagueKey === leagueKey)) {
+          setLeagueKey(ls[0]?.leagueKey ?? "");
+        }
+      } catch (e) {
+        if (!live) return;
+        setErrorLeagues(
+          e instanceof Error ? e.message : "Failed to load leagues"
+        );
+      } finally {
+        if (live) setLoadingLeagues(false);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [season, status, leagueKey]);
+
+  // teams for league
+  useEffect(() => {
+    let live = true;
+    const ac = new AbortController();
+    (async () => {
+      if (!leagueKey || status !== "authenticated") {
+        setTeams([]);
+        return;
+      }
+      try {
+        setErrorTeams(null);
+        setLoadingTeams(true);
+
+        // standings endpoint gives us the team list reliably
+        const { standings } = await fetchStandings({
+          leagueKey,
+          season,
+          signal: ac.signal,
+        });
+
+        if (!live) return;
+        setTeams(standings);
+      } catch (e) {
+        if (!live) return;
+        setErrorTeams(
+          e instanceof Error ? e.message : "Failed to load teams/owners"
+        );
+      } finally {
+        if (live) setLoadingTeams(false);
+      }
+    })();
+    return () => {
+      live = false;
       ac.abort();
     };
-  }, [season, leagueKey]);
+  }, [leagueKey, season, status]);
 
-  const filtered = useMemo(() => {
-    if (!data) return [];
-    const needle = q.trim().toLowerCase();
-    let rows = data.standings.map((s) => {
-      const games = s.wins + s.losses + s.ties;
-      const winPct = games > 0 ? s.wins / games : 0;
-      return { ...s, winPct };
-    });
-    if (needle.length > 0) {
-      rows = rows.filter(
-        (r) =>
-          r.manager.toLowerCase().includes(needle) ||
-          r.teamName.toLowerCase().includes(needle)
-      );
-    }
-    rows.sort((a, b) => {
-      const dir = descending ? -1 : 1;
-      switch (sortKey) {
-        case "seed":
-          return (a.rank - b.rank) * dir;
-        case "winPct":
-          return (a.winPct - b.winPct) * dir;
-        case "pointsFor":
-          return (a.pointsFor - b.pointsFor) * dir;
-        case "pointsAgainst":
-          return (a.pointsAgainst - b.pointsAgainst) * dir;
-        case "manager":
-          return a.manager.localeCompare(b.manager) * dir;
-        default:
-          return 0;
-      }
-    });
-    return rows;
-  }, [data, q, sortKey, descending]);
+  const firstName = useMemo(() => {
+    const raw = session?.user?.name ?? "";
+    const f = raw.trim().split(/\s+/)[0];
+    return f || "Manager";
+  }, [session]);
+
+  const showSignIn = status !== "authenticated";
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-zinc-950">
-      {/* Hero */}
+      {/* header */}
       <section className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-black">
         <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
-          <p className="text-sm uppercase tracking-widest text-sky-400">League Directory</p>
-          <h1 className="mt-1 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            Owners & Teams
-          </h1>
-          <p className="mt-3 max-w-2xl text-lg leading-7 text-zinc-300">
-            Find every manager at a glance. Sort by seed, win %, or points. Click through to the weekly dashboard.
-          </p>
-          <div className="mt-4 flex gap-2">
-            <Link
-              href="/fantasy?season=2025"
-              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-100 hover:bg-zinc-800"
-            >
-              2025 Dashboard
-            </Link>
-            <Link
-              href="/records"
-              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-100 hover:bg-zinc-800"
-            >
-              Records
-            </Link>
-            <Link
-              href="/history"
-              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-100 hover:bg-zinc-800"
-            >
-              History
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Controls */}
-      <section className="mx-auto max-w-7xl px-6 pb-6 lg:px-8">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 shadow-2xl ring-1 ring-black/10">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-zinc-300" htmlFor="q">
-                Search
-              </label>
-              <input
-                id="q"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Manager or team name"
-                className="w-64 rounded-md border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-sky-700"
-              />
+          <div className="flex items-baseline justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-red-400">
+                League Directory
+              </p>
+              <h1 className="mt-1 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+                {showSignIn ? "Owners" : `Owners — hi, ${firstName}`}
+              </h1>
+              <p className="mt-3 max-w-2xl text-lg leading-7 text-zinc-300">
+                Browse teams and managers for the selected league.
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-zinc-300" htmlFor="sort">
-                Sort by
-              </label>
-              <select
-                id="sort"
-                value={sortKey}
-                onChange={(e) => setSortKey(e.target.value as SortKey)}
-                className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-sky-700"
-              >
-                <option value="seed">Seed</option>
-                <option value="winPct">Win %</option>
-                <option value="pointsFor">Points For</option>
-                <option value="pointsAgainst">Points Against</option>
-                <option value="manager">Manager</option>
-              </select>
+
+            {showSignIn ? (
               <button
-                type="button"
-                aria-label="Toggle sort direction"
-                onClick={() => setDescending((d) => !d)}
-                className="rounded-md border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-xs font-semibold text-zinc-100 hover:bg-zinc-800"
+                onClick={() => signIn("yahoo")}
+                className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-500"
               >
-                {descending ? "Desc" : "Asc"}
+                Sign in with Yahoo
               </button>
-            </div>
+            ) : null}
           </div>
         </div>
       </section>
 
-      {/* Content */}
-      <section className="mx-auto max-w-7xl px-6 pb-12 lg:px-8">
-        {loading ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <div key={i} className="h-40 animate-pulse rounded-2xl bg-zinc-900" />
-            ))}
+      {/* controls */}
+      <section className="mx-auto max-w-7xl px-6 pb-6 lg:px-8">
+        <div className="grid gap-4 sm:grid-cols-3">
+          {/* season */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-zinc-400">
+              Season
+            </label>
+            <select
+              value={season}
+              onChange={(e) => setSeason(e.target.value)}
+              className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-800 px-2 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-red-600"
+              disabled={loadingSeasons}
+            >
+              {seasons.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
           </div>
-        ) : error ? (
-          <div className="rounded-2xl border border-red-900/60 bg-red-950/40 p-4 text-sm text-red-300">
-            Failed to load owners. {error}
-          </div>
-        ) : !data ? (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 text-zinc-300">
-            No owners available.
-          </div>
-        ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((t) => (
-              <article
-                key={t.teamKey}
-                className="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 p-5 shadow-2xl ring-1 ring-black/10 transition hover:shadow-zinc-900/40"
+
+          {/* league */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:col-span-2">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-zinc-400">
+              League
+            </label>
+            <div className="mt-1 flex gap-2">
+              <select
+                value={leagueKey}
+                onChange={(e) => setLeagueKey(e.target.value)}
+                className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-2 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-red-600"
+                disabled={loadingLeagues || leagues.length === 0 || showSignIn}
               >
-                {/* Glow */}
-                <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rotate-12 rounded-full bg-sky-700/10 blur-2xl transition group-hover:bg-sky-600/20" />
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="rounded-md bg-white/5 px-2 py-0.5 text-xs font-semibold text-zinc-300 ring-1 ring-white/10">
-                    Seed #{t.rank}
-                  </span>
-                  {t.streak && (
-                    <span
-                      className={
-                        "rounded-md px-2 py-0.5 text-xs font-semibold ring-1 " +
-                        (t.streak.startsWith("W")
-                          ? "bg-emerald-700/20 text-emerald-300 ring-emerald-700/40"
-                          : "bg-red-700/20 text-red-300 ring-red-700/40")
-                      }
-                    >
-                      {t.streak}
-                    </span>
-                  )}
-                </div>
-                <h3 className="text-lg font-bold text-white">{t.teamName}</h3>
-                <p className="text-sm text-zinc-400">{t.manager}</p>
+                {leagues.length === 0 ? (
+                  <option value="" disabled>
+                    {showSignIn ? "Sign in to load leagues" : "No leagues found"}
+                  </option>
+                ) : (
+                  leagues.map((l: YahooLeague) => (
+                    <option key={l.leagueKey} value={l.leagueKey}>
+                      {l.name}
+                    </option>
+                  ))
+                )}
+              </select>
 
-                <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                  <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-2">
-                    <p className="text-zinc-400">Record</p>
-                    <p className="font-medium text-zinc-100">
-                      {t.wins}-{t.losses}
-                      {t.ties ? `-${t.ties}` : ""}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-2">
-                    <p className="text-zinc-400">Win %</p>
-                    <p className="font-medium text-zinc-100">
-                      {(((t.wins + 0.0001) / (t.wins + t.losses + t.ties || 1)) * 100).toFixed(1)}%
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-2">
-                    <p className="text-zinc-400">PF</p>
-                    <p className="font-medium text-zinc-100">{t.pointsFor.toFixed(1)}</p>
-                  </div>
-                  <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-2">
-                    <p className="text-zinc-400">PA</p>
-                    <p className="font-medium text-zinc-100">{t.pointsAgainst.toFixed(1)}</p>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex items-center gap-2">
-                  <Link
-                    href={`/fantasy?season=${season}&week=week1`}
-                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-100 hover:bg-zinc-800"
-                  >
-                    View Week 1
-                  </Link>
-                  <Link
-                    href={`/fantasy?season=${season}&week=preseason`}
-                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-100 hover:bg-zinc-800"
-                  >
-                    Preseason
-                  </Link>
-                </div>
-              </article>
-            ))}
+              <Link
+                href={`/fantasy?season=${encodeURIComponent(
+                  season
+                )}&leagueKey=${encodeURIComponent(leagueKey)}`}
+                className="inline-flex items-center rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-700"
+              >
+                Go to Dashboard
+              </Link>
+            </div>
+            {errorLeagues && (
+              <p className="mt-1 text-[11px] text-amber-400">{errorLeagues}</p>
+            )}
           </div>
-        )}
+        </div>
+      </section>
+
+      {/* owners grid */}
+      <section className="mx-auto max-w-7xl px-6 pb-16 lg:px-8">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-white">Teams & Owners</h2>
+            <span className="text-xs uppercase tracking-wider text-zinc-400">
+              {teams.length} teams
+            </span>
+          </div>
+
+          {loadingTeams ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <div key={i} className="h-20 animate-pulse rounded-xl bg-zinc-800" />
+              ))}
+            </div>
+          ) : errorTeams ? (
+            <div className="rounded-lg border border-amber-900/60 bg-amber-950/40 p-3 text-amber-300">
+              {errorTeams}
+            </div>
+          ) : teams.length === 0 ? (
+            <p className="text-zinc-400">No teams found.</p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {teams.map((t: TeamStanding, idx: number) => {
+                // only touch known fields; owner name via safe helper on the raw object
+                const teamName = (t as unknown as { teamName?: string }).teamName ?? "Team";
+                const ownerName = getManagerName(t) ?? "Manager";
+                return (
+                  <div
+                    key={(t as unknown as { teamKey?: string }).teamKey ?? idx}
+                    className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950 p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <PlayerHeadshot name={ownerName} size={40} rounded="lg" />
+                      <div>
+                        <p className="text-sm font-semibold text-white">
+                          {teamName}
+                        </p>
+                        <p className="text-xs text-zinc-400">{ownerName}</p>
+                      </div>
+                    </div>
+                    {/* optional link to team page later */}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </section>
     </main>
   );
