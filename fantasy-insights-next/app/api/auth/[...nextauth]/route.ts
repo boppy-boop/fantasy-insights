@@ -51,7 +51,7 @@ async function refreshYahooToken(
 
 /**
  * Yahoo provider as a plain object (no OAuthProvider() helper).
- * Typing it as OAuthConfig<YahooProfile> avoids the generic helper issues.
+ * Typing it as OAuthConfig<YahooProfile> avoids helper/generic issues.
  */
 const Yahoo: OAuthConfig<YahooProfile> = {
   id: "yahoo",
@@ -67,10 +67,9 @@ const Yahoo: OAuthConfig<YahooProfile> = {
       scope: "openid profile email fspt-r",
     },
   },
-  // Explicit checks (sensible defaults)
+  // Explicit checks
   checks: ["pkce", "state"],
   profile(raw) {
-    // Narrow unknown to our profile shape
     const p = raw as Partial<YahooProfile>;
     return {
       id: p.sub ?? "",
@@ -92,9 +91,9 @@ type AugmentedSession = Session & {
   expiresAt?: number;
 };
 
-export const authOptions: NextAuthOptions = {
+const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
-  // NOTE: If your version doesn't support `trustHost`, rely on NEXTAUTH_URL instead.
+  // NOTE: Do not export authOptions from this file. Route modules may only export route handlers & route options.
   providers: [Yahoo],
   callbacks: {
     async jwt({ token, account }) {
