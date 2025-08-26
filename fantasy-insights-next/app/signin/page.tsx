@@ -1,4 +1,3 @@
-// app/signin/page.tsx
 "use client";
 
 import { signIn } from "next-auth/react";
@@ -11,8 +10,8 @@ export default function SignInPage() {
         <h1 className="text-2xl font-bold text-white">Sign in</h1>
         <p className="mt-2 text-sm text-zinc-400">
           Choose a method below. The button calls{" "}
-          <code className="text-zinc-300">signIn('yahoo')</code>. The link opens
-          NextAuth’s built-in sign-in page.
+          <code className="text-zinc-300">signIn(&apos;yahoo&apos;)</code>. The link opens
+          the built-in NextAuth sign-in page.
         </p>
 
         <div className="mt-6 space-y-3">
