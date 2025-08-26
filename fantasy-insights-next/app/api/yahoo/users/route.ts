@@ -1,24 +1,49 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "../../../../lib/auth";
+import { auth } from "@/lib/auth";
 
-type Ok = { ok: true; user: { id?: string; email?: string; name?: string } };
-type NotAuthed = { ok: false; error: "UNAUTHORIZED" };
+/**
+ * GET /api/yahoo/users
+ * Returns the Yahoo "use_login" user payload for the signed-in account.
+ * Requires a valid Yahoo access token in the session (set by NextAuth).
+ */
+export async function GET() {
+  // Get the session via NextAuth v5 helper
+  const session = await auth();
 
-export async function GET(): Promise<NextResponse<Ok | NotAuthed>> {
-  const session = await getServerSession(authOptions);
+  // Pull the Yahoo access token we attached in the session callback
+  const yahoo = (session as { yahoo?: { accessToken: string | null } } | null)?.yahoo;
+  const accessToken = yahoo?.accessToken ?? null;
 
-  if (!session) {
-    return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
+  if (!accessToken) {
+    return NextResponse.json(
+      { error: "Not authenticated with Yahoo" },
+      { status: 401 }
+    );
   }
 
-  // Stub: return minimal user data (you can later call Yahoo userinfo here)
-  return NextResponse.json({
-    ok: true,
-    user: {
-      id: session.user?.email ?? undefined,
-      email: session.user?.email ?? undefined,
-      name: session.user?.name ?? undefined,
-    },
-  });
+  const url =
+    "https://fantasysports.yahooapis.com/fantasy/v2/users;use_login=1?format=json";
+
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      // Always fetch fresh user info
+      cache: "no-store",
+      next: { revalidate: 0 },
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return NextResponse.json(
+        { error: "Yahoo API error", status: res.status, body },
+        { status: 502 }
+      );
+    }
+
+    const data: unknown = await res.json();
+    return NextResponse.json({ ok: true, data }, { status: 200 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
