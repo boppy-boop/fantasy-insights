@@ -1,43 +1,62 @@
-// app/signin/page.tsx
 "use client";
 
+import { useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 
 export default function SignInPage() {
+  const [loading, setLoading] = useState(false);
+
+  async function handleYahooSignIn() {
+    try {
+      setLoading(true);
+      // Send users to Yahoo, then back to /fantasy on success
+      await signIn("yahoo", { callbackUrl: "/fantasy" });
+    } finally {
+      // This will not run if the browser navigates away immediately after signIn,
+      // but it is fine for local UX (e.g., popup blockers).
+      setLoading(false);
+    }
+  }
+
   return (
-    <main className="min-h-[60vh] flex items-center justify-center bg-zinc-950">
-      <div className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-900 p-6 shadow-xl">
-        <h1 className="text-2xl font-bold text-white">Sign in</h1>
-        <p className="mt-2 text-sm text-zinc-400">
-          Choose a method below. The button calls <code>signIn(&quot;yahoo&quot;)</code>.
-          The link opens the built-in NextAuth sign-in page.
-        </p>
+    <main className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center p-6">
+      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl shadow-purple-950/30 p-8">
+        <header className="text-center mb-8">
+          <h1 className="text-3xl font-extrabold tracking-tight">Sign In</h1>
+          <p className="text-zinc-400 mt-2">
+            Connect Yahoo to pull your leagues, matchups, and standings.
+          </p>
+        </header>
 
-        <div className="mt-6 space-y-3">
-          <button
-            onClick={() =>
-              signIn("yahoo", {
-                callbackUrl: "/fantasy",
-              })
-            }
-            className="w-full rounded-lg bg-purple-600 px-4 py-2 text-center font-medium text-white hover:bg-purple-500"
-          >
-            Continue with Yahoo
-          </button>
+        <button
+          onClick={handleYahooSignIn}
+          disabled={loading}
+          className="w-full inline-flex items-center justify-center rounded-xl px-5 py-3 font-semibold
+                     bg-purple-700 hover:bg-purple-600 disabled:opacity-60 disabled:cursor-not-allowed
+                     transition-colors duration-200 shadow-lg shadow-purple-900/40"
+          aria-busy={loading}
+          aria-label="Sign in with Yahoo"
+        >
+          {loading ? "Redirecting…" : "Sign in with Yahoo"}
+        </button>
 
-          {/* Built-in NextAuth sign-in UI (provider selector) */}
+        <div className="mt-6 text-center">
           <Link
-            href="/api/auth/signin"
-            className="block w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-center font-medium text-zinc-200 hover:bg-zinc-700"
+            href="/"
+            className="text-sm text-zinc-400 hover:text-zinc-200 underline underline-offset-4"
           >
-            Open NextAuth sign-in page
+            Back to home
           </Link>
         </div>
 
-        <div className="mt-4 text-xs text-zinc-500">
-          If neither works, your environment or Yahoo app callback is likely
-          misconfigured.
+        <div className="mt-6 text-xs text-zinc-500">
+          <p>
+            If clicking the button appears to do nothing, check for popup
+            blockers or privacy extensions, and make sure the environment
+            variables are set: <code>YAHOO_CLIENT_ID</code>,{" "}
+            <code>YAHOO_CLIENT_SECRET</code>, and <code>NEXTAUTH_URL</code>.
+          </p>
         </div>
       </div>
     </main>

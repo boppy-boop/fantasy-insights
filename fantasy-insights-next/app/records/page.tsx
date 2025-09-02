@@ -1,15 +1,45 @@
 // app/records/page.tsx
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import PlayerHeadshot from "@/components/PlayerHeadshot";
+import { useEffect, useMemo, useState } from 'react';
+import PlayerHeadshot from '@/components/PlayerHeadshot';
 import {
-  fetchSeasons,
-  fetchLeaguesBySeason,
+  fetchUserSeasons,
+  fetchLeagues,
   fetchStandings,
-  type YahooLeague,
   type TeamStanding,
-} from "@/lib/yahoo";
+} from '@/lib/yahoo';
+import Link from 'next/link';
+
+type YahooLeagueLite = { league_key: string; name: string };
+
+function extractSeasons(raw: unknown): number[] {
+  try {
+    const s = JSON.stringify(raw);
+    const years = Array.from(new Set(Array.from(s.matchAll(/nfl\.(\d{4})/g)).map((m) => Number(m[1]))));
+    return years.sort((a, b) => b - a);
+  } catch {
+    return [2025];
+  }
+}
+
+function coerceLeagueList(raw: unknown): YahooLeagueLite[] {
+  try {
+    const s = JSON.stringify(raw);
+    const keys = Array.from(s.matchAll(/"league_key"\s*:\s*"([^"]+)"/g)).map((m) => m[1]);
+    const names = Array.from(s.matchAll(/"name"\s*:\s*"([^"]+)"/g)).map((m) => m[1]);
+    const out: YahooLeagueLite[] = [];
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      const n = names[i] ?? keys[i];
+      if (k && typeof k === 'string') out.push({ league_key: k, name: String(n) });
+    }
+    const seen = new Set<string>();
+    return out.filter((l) => (seen.has(l.league_key) ? false : (seen.add(l.league_key), true)));
+  } catch {
+    return [];
+  }
+}
 
 type Podium = {
   champion?: TeamStanding;
@@ -18,33 +48,26 @@ type Podium = {
 };
 
 export default function RecordsPage() {
-  const [season, setSeason] = useState<string>("2025");
-  const [seasons, setSeasons] = useState<string[]>(["2025"]);
-  const [loadingSeasons, setLoadingSeasons] = useState(false);
-
-  const [leagues, setLeagues] = useState<YahooLeague[]>([]);
-  const [leagueKey, setLeagueKey] = useState<string>("");
-  const [loadingLeagues, setLoadingLeagues] = useState(false);
-  const [leaguesError, setLeaguesError] = useState<string | null>(null);
-
+  const [seasons, setSeasons] = useState<number[]>([2025]);
+  const [season, setSeason] = useState<number>(2025);
+  const [leagues, setLeagues] = useState<YahooLeagueLite[]>([]);
+  const [leagueKey, setLeagueKey] = useState<string>('');
   const [standings, setStandings] = useState<TeamStanding[]>([]);
-  const [loadingStandings, setLoadingStandings] = useState(false);
-  const [standingsError, setStandingsError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load seasons (ensure 2025 always present)
+  // Load seasons
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        setLoadingSeasons(true);
-        const s = await fetchSeasons();
+        const raw = await fetchUserSeasons();
         if (!active) return;
-        const merged = Array.from(new Set(["2025", ...s])).sort((a, b) => Number(b) - Number(a));
-        setSeasons(merged);
-        // If initial is not in list, snap to newest
-        if (!merged.includes(season)) setSeason(merged[0] ?? "2025");
-      } finally {
-        if (active) setLoadingSeasons(false);
+        const yrs = extractSeasons(raw);
+        setSeasons(yrs.length ? yrs : [2025]);
+        if (yrs.length && !yrs.includes(season)) setSeason(yrs[0]);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load seasons');
       }
     })();
     return () => {
@@ -53,24 +76,24 @@ export default function RecordsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load leagues for selected season
+  // Load leagues
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        setLeaguesError(null);
-        setLoadingLeagues(true);
+        setLoading(true);
+        setError(null);
         setLeagues([]);
-        setLeagueKey(""); // clear when season changes
-        const ls = await fetchLeaguesBySeason(season);
+        setLeagueKey('');
+        const raw = await fetchLeagues(String(season));
         if (!active) return;
+        const ls = coerceLeagueList(raw);
         setLeagues(ls);
-        if (ls[0]?.leagueKey) setLeagueKey(ls[0].leagueKey);
+        if (ls[0]) setLeagueKey(ls[0].league_key);
       } catch (e) {
-        if (!active) return;
-        setLeaguesError(e instanceof Error ? e.message : "Failed to load leagues for this season");
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load leagues');
       } finally {
-        if (active) setLoadingLeagues(false);
+        if (active) setLoading(false);
       }
     })();
     return () => {
@@ -78,37 +101,31 @@ export default function RecordsPage() {
     };
   }, [season]);
 
-  // Load standings for selected league
+  // Load standings
   useEffect(() => {
     let active = true;
-    const ac = new AbortController();
     (async () => {
-      if (!leagueKey) {
-        setStandings([]);
-        return;
-      }
+      if (!leagueKey) return;
       try {
-        setStandingsError(null);
-        setLoadingStandings(true);
-        const res = await fetchStandings({ season, leagueKey, signal: ac.signal });
+        setLoading(true);
+        setError(null);
+        await fetchStandings(leagueKey).catch(() => null);
         if (!active) return;
-        setStandings(res.standings ?? []);
+        setStandings([]); // real parsing to be added
       } catch (e) {
-        if (!active) return;
-        setStandingsError(e instanceof Error ? e.message : "Failed to load standings");
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load standings');
       } finally {
-        if (active) setLoadingStandings(false);
+        if (active) setLoading(false);
       }
     })();
     return () => {
       active = false;
-      ac.abort();
     };
-  }, [season, leagueKey]);
+  }, [leagueKey]);
 
   // Compute podium from standings (rank 1..3)
   const podium: Podium = useMemo(() => {
-    const sorted = [...(standings ?? [])].sort((a, b) => (a.rank || 999) - (b.rank || 999));
+    const sorted = [...standings].sort((a, b) => (a.rank || 999) - (b.rank || 999));
     return {
       champion: sorted[0],
       runnerUp: sorted[1],
@@ -116,214 +133,124 @@ export default function RecordsPage() {
     };
   }, [standings]);
 
-  // Quick all-time leaderboard data structure (extend later)
-  // For now we just echo the current league's standings ordered.
+  // Leaderboard (for now mirror standings)
   const leaderboard = useMemo(() => {
-    return [...(standings ?? [])].sort((a, b) => (a.rank || 999) - (b.rank || 999));
+    return [...standings].sort((a, b) => (a.rank || 999) - (b.rank || 999));
   }, [standings]);
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-zinc-950">
-      {/* Header */}
-      <section className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-black">
-        <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
-          <div className="flex items-baseline justify-between gap-4">
-            <div>
-              <p className="text-sm uppercase tracking-widest text-red-400">Hall of Fame</p>
-              <h1 className="mt-1 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-                Championship Records & Leaderboard
-              </h1>
-              <p className="mt-3 max-w-2xl text-lg leading-7 text-zinc-300">
-                Celebrate champions, finalists, and legends across your seasons.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      <section className="mx-auto max-w-7xl px-6 py-10">
+        <h1 className="text-2xl font-black tracking-tight">League Records</h1>
+        <p className="mt-2 text-sm text-zinc-400">Podiums, best seasons, and more — per league & season.</p>
 
-      {/* Controls */}
-      <section className="mx-auto max-w-7xl px-6 pb-8 lg:px-8">
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Controls */}
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-            <label htmlFor="season" className="block text-xs font-semibold uppercase tracking-wide text-zinc-400">
-              Season
-            </label>
+            <label className="mb-2 block text-xs font-semibold text-zinc-400">Season</label>
             <select
-              id="season"
-              value={season}
-              onChange={(e) => setSeason(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-800 px-2 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-red-600"
-              disabled={loadingSeasons}
+              className="mb-4 w-full rounded-lg bg-zinc-800 px-3 py-2 text-sm"
+              value={String(season)}
+              onChange={(e) => setSeason(Number(e.target.value))}
             >
-              {seasons.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+              {seasons.map((y) => (
+                <option key={y} value={y}>
+                  {y}
                 </option>
               ))}
             </select>
-            {loadingSeasons && <p className="mt-1 text-[11px] text-zinc-500">Loading seasons…</p>}
-          </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-            <label htmlFor="league" className="block text-xs font-semibold uppercase tracking-wide text-zinc-400">
-              League
-            </label>
+            <label className="mb-2 block text-xs font-semibold text-zinc-400">League</label>
             <select
-              id="league"
+              className="mb-2 w-full rounded-lg bg-zinc-800 px-3 py-2 text-sm"
               value={leagueKey}
               onChange={(e) => setLeagueKey(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-800 px-2 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-red-600"
-              disabled={loadingLeagues || leagues.length === 0}
+              disabled={!leagues.length}
             >
-              {leagues.length === 0 ? (
-                <option value="" disabled>
-                  {leaguesError ? "Sign in to Yahoo & refresh" : "No leagues found"}
+              {leagues.map((l) => (
+                <option key={l.league_key} value={l.league_key}>
+                  {l.name}
                 </option>
-              ) : (
-                leagues.map((l) => (
-                  <option key={l.leagueKey} value={l.leagueKey}>
-                    {l.name}
-                  </option>
-                ))
-              )}
+              ))}
             </select>
-            {loadingLeagues && <p className="mt-1 text-[11px] text-zinc-500">Loading leagues…</p>}
-            {leaguesError && <p className="mt-1 text-[11px] text-amber-400">{leaguesError}</p>}
+
+            {error && <p className="text-xs text-red-400">{error}</p>}
+            {loading && <p className="text-xs text-zinc-400">Loading…</p>}
+            {!leagues.length && (
+              <p className="text-sm text-zinc-400">
+                No leagues found. You may need to{' '}
+                <Link href="/signin" className="underline">
+                  sign in with Yahoo
+                </Link>
+                .
+              </p>
+            )}
           </div>
-        </div>
-      </section>
 
-      {/* Podium */}
-      <section className="mx-auto max-w-7xl px-6 pb-10 lg:px-8">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10">
-          <h2 className="mb-4 text-2xl font-bold text-white">Championship Podium</h2>
-
-          {loadingStandings ? (
-            <div className="grid gap-4 sm:grid-cols-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-28 animate-pulse rounded-xl bg-zinc-800" />
-              ))}
-            </div>
-          ) : standingsError ? (
-            <div className="rounded-lg border border-amber-900/60 bg-amber-950/40 p-3 text-amber-300">
-              {standingsError}
-            </div>
-          ) : standings.length === 0 ? (
-            <p className="text-zinc-400">No standings available.</p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-3">
-              {/* Runner-Up (left) */}
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Runner-Up</p>
-                {podium.runnerUp ? (
-                  <div className="mt-2 flex items-center gap-3">
-                    <PlayerHeadshot name={podium.runnerUp.teamName} size={56} />
-                    <div>
-                      <p className="text-sm font-semibold text-white">{podium.runnerUp.teamName}</p>
-                      <p className="text-xs text-zinc-400">
-                        Rank #{podium.runnerUp.rank} • {podium.runnerUp.wins}-{podium.runnerUp.losses}
-                        {podium.runnerUp.ties ? `-${podium.runnerUp.ties}` : ""}
-                      </p>
+          {/* Podium */}
+          <div className="lg:col-span-2">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+              <h3 className="mb-3 text-lg font-bold tracking-tight">Season Podium</h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="rounded-lg bg-zinc-800 p-4">
+                  <h4 className="text-sm font-semibold text-zinc-300">Champion</h4>
+                  {podium.champion ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <PlayerHeadshot name={podium.champion.team.name} src={podium.champion.team.logo ?? undefined} />
+                      <div className="text-sm">{podium.champion.team.name}</div>
                     </div>
-                  </div>
-                ) : (
-                  <p className="text-zinc-400">—</p>
-                )}
-              </div>
-
-              {/* Champion (center) */}
-              <div className="rounded-xl border border-yellow-700/50 bg-yellow-900/20 p-4 ring-1 ring-yellow-400/20">
-                <p className="text-xs font-semibold uppercase tracking-wide text-yellow-300">Champion</p>
-                {podium.champion ? (
-                  <div className="mt-2 flex items-center gap-3">
-                    <PlayerHeadshot name={podium.champion.teamName} size={64} />
-                    <div>
-                      <p className="text-base font-semibold text-white">{podium.champion.teamName}</p>
-                      <p className="text-xs text-zinc-300">
-                        Rank #{podium.champion.rank} • {podium.champion.wins}-{podium.champion.losses}
-                        {podium.champion.ties ? `-${podium.champion.ties}` : ""}
-                      </p>
+                  ) : (
+                    <p className="mt-2 text-sm text-zinc-500">—</p>
+                  )}
+                </div>
+                <div className="rounded-lg bg-zinc-800 p-4">
+                  <h4 className="text-sm font-semibold text-zinc-300">Runner-up</h4>
+                  {podium.runnerUp ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <PlayerHeadshot name={podium.runnerUp.team.name} src={podium.runnerUp.team.logo ?? undefined} />
+                      <div className="text-sm">{podium.runnerUp.team.name}</div>
                     </div>
-                  </div>
-                ) : (
-                  <p className="text-zinc-400">—</p>
-                )}
-              </div>
-
-              {/* Third (right) */}
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Third</p>
-                {podium.third ? (
-                  <div className="mt-2 flex items-center gap-3">
-                    <PlayerHeadshot name={podium.third.teamName} size={56} />
-                    <div>
-                      <p className="text-sm font-semibold text-white">{podium.third.teamName}</p>
-                      <p className="text-xs text-zinc-400">
-                        Rank #{podium.third.rank} • {podium.third.wins}-{podium.third.losses}
-                        {podium.third.ties ? `-${podium.third.ties}` : ""}
-                      </p>
+                  ) : (
+                    <p className="mt-2 text-sm text-zinc-500">—</p>
+                  )}
+                </div>
+                <div className="rounded-lg bg-zinc-800 p-4">
+                  <h4 className="text-sm font-semibold text-zinc-300">Third place</h4>
+                  {podium.third ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <PlayerHeadshot name={podium.third.team.name} src={podium.third.team.logo ?? undefined} />
+                      <div className="text-sm">{podium.third.team.name}</div>
                     </div>
-                  </div>
-                ) : (
-                  <p className="text-zinc-400">—</p>
-                )}
+                  ) : (
+                    <p className="mt-2 text-sm text-zinc-500">—</p>
+                  )}
+                </div>
               </div>
             </div>
-          )}
-        </div>
-      </section>
 
-      {/* Leaderboard (current league) */}
-      <section className="mx-auto max-w-7xl px-6 pb-16 lg:px-8">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10">
-          <h2 className="mb-4 text-2xl font-bold text-white">Leaderboard</h2>
-
-          {loadingStandings ? (
-            <div className="grid gap-2">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-10 animate-pulse rounded-md bg-zinc-800" />
-              ))}
-            </div>
-          ) : standingsError ? (
-            <div className="rounded-lg border border-amber-900/60 bg-amber-950/40 p-3 text-amber-300">
-              {standingsError}
-            </div>
-          ) : leaderboard.length === 0 ? (
-            <p className="text-zinc-400">No leaderboard to display.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-zinc-800 text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-zinc-400">
-                    <th className="px-3 py-2">Rank</th>
-                    <th className="px-3 py-2">Team</th>
-                    <th className="px-3 py-2">W-L-T</th>
-                    <th className="px-3 py-2">PF</th>
-                    <th className="px-3 py-2">PA</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800">
-                  {leaderboard.map((t) => (
-                    <tr key={t.teamKey} className="hover:bg-zinc-800/40">
-                      <td className="px-3 py-2 text-zinc-300">#{t.rank}</td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-3">
-                          <PlayerHeadshot name={t.teamName} size={36} rounded="lg" />
-                          <span className="font-medium text-white">{t.teamName}</span>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-zinc-300">
-                        {t.wins}-{t.losses}
-                        {t.ties ? `-${t.ties}` : ""}
-                      </td>
-                      <td className="px-3 py-2 text-zinc-300">{t.pointsFor.toFixed(1)}</td>
-                      <td className="px-3 py-2 text-zinc-300">{t.pointsAgainst.toFixed(1)}</td>
-                    </tr>
+            {/* Leaderboard */}
+            <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+              <h3 className="mb-3 text-lg font-bold tracking-tight">Leaderboard</h3>
+              {leaderboard.length ? (
+                <ul className="space-y-2">
+                  {leaderboard.map((row) => (
+                    <li key={row.team.id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <PlayerHeadshot name={row.team.name} src={row.team.logo ?? undefined} size={20} />
+                        <span className="text-sm">{row.team.name}</span>
+                      </div>
+                      <span className="text-xs text-zinc-400">
+                        {row.wins}-{row.losses}
+                        {row.ties ? `-${row.ties}` : ''}
+                      </span>
+                    </li>
                   ))}
-                </tbody>
-              </table>
+                </ul>
+              ) : (
+                <p className="text-sm text-zinc-500">No standings available.</p>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </section>
     </main>

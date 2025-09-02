@@ -1,86 +1,96 @@
 // lib/insights.ts
 import type { Matchup, TeamStanding } from "./yahoo";
 
-/**
- * What the UI consumes for the "Weekly Notes" tiles.
- */
 export type WeeklyInsights = {
-  /** Highest single-team score across all matchups */
   teamOfWeek: { teamName: string; score: number } | null;
-  /** Largest winning margin (absolute) across all matchups */
   blowout: { home: string; away: string; margin: number } | null;
-  /** Smallest winning margin (absolute) across all matchups */
   closest: { home: string; away: string; margin: number } | null;
+  upsets: Array<{ winner: string; loser: string; seedDiff: number; margin: number }>;
 };
 
+// Helpers to read both legacy and new shapes safely
+function getSideName(side: any): string {
+  // supports { name } and { teamName }
+  return (side?.name ?? side?.teamName ?? "") as string;
+}
+function getSideScore(side: any): number {
+  return Number(side?.score ?? 0);
+}
+
 /**
- * Compute weekly insights (team of the week, blowout, closest game)
- * from the given matchups. Standings are accepted for future tiebreakers,
- * but are not required for the current calculations.
+ * Compute quick weekly insights from a list of matchups + (optional) standings.
+ * Assumptions:
+ * - Matchup side shape may be { name, score } OR { teamName, score }.
+ * - Lower seed number is a better seed (1 is best). If no seed, we skip upset tagging.
  */
 export function computeWeeklyInsights(
   matchups: Matchup[],
   standings: TeamStanding[]
 ): WeeklyInsights {
-  // not used today; kept for future seed/tiebreak logic
-  void standings;
-
   if (!Array.isArray(matchups) || matchups.length === 0) {
-    return { teamOfWeek: null, blowout: null, closest: null };
+    return { teamOfWeek: null, blowout: null, closest: null, upsets: [] };
   }
 
-  let topTeam: { teamName: string; score: number } | null = null;
+  // Seed map (team name -> seed) if available on standings
+  const seedMap = new Map<string, number>();
+  for (const s of standings ?? []) {
+    // TeamStanding typically exposes { team: string; seed?: number } in our codebase;
+    // accept some flexibility just in case.
+    const name = (s as any).team ?? (s as any).teamName ?? "";
+    const seed = (s as any).seed as number | undefined;
+    if (name && typeof seed === "number") seedMap.set(name, seed);
+  }
+
+  let top: { teamName: string; score: number } | null = null;
   let blowout: { home: string; away: string; margin: number } | null = null;
   let closest: { home: string; away: string; margin: number } | null = null;
+  const upsets: Array<{ winner: string; loser: string; seedDiff: number; margin: number }> = [];
 
-  for (let i = 0; i < matchups.length; i++) {
-    const m = matchups[i];
+  for (const m of matchups) {
+    // tolerate both shapes on the matchup sides
+    const home = getSideName((m as any).home);
+    const away = getSideName((m as any).away);
+    const hs = getSideScore((m as any).home);
+    const as = getSideScore((m as any).away);
 
-    const homeScore = safeNumber(m.home?.score);
-    const awayScore = safeNumber(m.away?.score);
+    // team of the week
+    const localTop = hs >= as ? { teamName: home, score: hs } : { teamName: away, score: as };
+    if (!top || localTop.score > top.score) top = localTop;
 
-    // Team of the Week candidate (check both sides)
-    const localTop =
-      homeScore >= awayScore
-        ? { teamName: m.home.teamName, score: homeScore }
-        : { teamName: m.away.teamName, score: awayScore };
-
-    if (!topTeam || localTop.score > topTeam.score) {
-      topTeam = localTop;
+    // blowout (max margin)
+    const margin = Math.abs(hs - as);
+    if (!blowout || margin > blowout.margin) {
+      blowout = { home, away, margin };
     }
 
-    // Margin calculations
-    const diff = Math.abs(homeScore - awayScore);
-    const marginPayload = {
-      home: m.home.teamName,
-      away: m.away.teamName,
-      margin: round1(diff),
-    };
-
-    // Blowout: max margin
-    if (!blowout || diff > blowout.margin) {
-      blowout = marginPayload;
+    // closest (min margin)
+    if (!closest || margin < closest.margin) {
+      closest = { home, away, margin };
     }
 
-    // Closest: min margin
-    if (!closest || diff < closest.margin) {
-      closest = marginPayload;
+    // upsets (only if both seeds exist and there isn't a tie)
+    if (hs !== as) {
+      const winner = hs > as ? home : away;
+      const loser = hs > as ? away : home;
+
+      if (seedMap.has(winner) && seedMap.has(loser)) {
+        const wSeed = seedMap.get(winner)!;
+        const lSeed = seedMap.get(loser)!;
+        // "upset" = worse seed number (higher value) beats better seed (lower value)
+        if (wSeed > lSeed) {
+          upsets.push({ winner, loser, seedDiff: wSeed - lSeed, margin });
+        }
+      }
     }
   }
 
+  // Sort upsets by biggest seed diff, then by margin
+  upsets.sort((a, b) => (b.seedDiff - a.seedDiff) || (b.margin - a.margin));
+
   return {
-    teamOfWeek: topTeam,
+    teamOfWeek: top,
     blowout,
     closest,
+    upsets,
   };
-}
-
-/* ------------------------ helpers ------------------------ */
-
-function safeNumber(v: unknown): number {
-  return typeof v === "number" && Number.isFinite(v) ? v : 0;
-}
-
-function round1(n: number): number {
-  return Math.round(n * 10) / 10;
 }

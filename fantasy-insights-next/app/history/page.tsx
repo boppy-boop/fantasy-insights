@@ -1,44 +1,68 @@
 // app/history/page.tsx
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import PlayerHeadshot from "@/components/PlayerHeadshot";
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import PlayerHeadshot from '@/components/PlayerHeadshot';
 import {
-  fetchSeasons,
-  fetchLeaguesBySeason,
+  fetchUserSeasons,
+  fetchLeagues,
   fetchStandings,
-  type YahooLeague,
   type TeamStanding,
-} from "@/lib/yahoo";
+} from '@/lib/yahoo';
+
+type YahooLeagueLite = { league_key: string; name: string };
+
+function extractSeasons(raw: unknown): number[] {
+  try {
+    const s = JSON.stringify(raw);
+    const years = Array.from(new Set(Array.from(s.matchAll(/nfl\.(\d{4})/g)).map((m) => Number(m[1]))));
+    return years.sort((a, b) => b - a);
+  } catch {
+    return [2025];
+  }
+}
+
+function coerceLeagueList(raw: unknown): YahooLeagueLite[] {
+  try {
+    const s = JSON.stringify(raw);
+    const keys = Array.from(s.matchAll(/"league_key"\s*:\s*"([^"]+)"/g)).map((m) => m[1]);
+    const names = Array.from(s.matchAll(/"name"\s*:\s*"([^"]+)"/g)).map((m) => m[1]);
+    const out: YahooLeagueLite[] = [];
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      const n = names[i] ?? keys[i];
+      if (k && typeof k === 'string') out.push({ league_key: k, name: String(n) });
+    }
+    const seen = new Set<string>();
+    return out.filter((l) => (seen.has(l.league_key) ? false : (seen.add(l.league_key), true)));
+  } catch {
+    return [];
+  }
+}
 
 export default function HistoryPage() {
-  const [season, setSeason] = useState<string>("2025");
-  const [seasons, setSeasons] = useState<string[]>(["2025"]);
-  const [loadingSeasons, setLoadingSeasons] = useState(false);
-
-  const [leagues, setLeagues] = useState<YahooLeague[]>([]);
-  const [leagueKey, setLeagueKey] = useState<string>("");
-  const [loadingLeagues, setLoadingLeagues] = useState(false);
-  const [leaguesError, setLeaguesError] = useState<string | null>(null);
-
+  const [seasons, setSeasons] = useState<number[]>([2025]);
+  const [season, setSeason] = useState<number>(2025);
+  const [leagues, setLeagues] = useState<YahooLeagueLite[]>([]);
+  const [leagueKey, setLeagueKey] = useState<string>('');
   const [standings, setStandings] = useState<TeamStanding[]>([]);
-  const [loadingStandings, setLoadingStandings] = useState(false);
-  const [standingsError, setStandingsError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load seasons (ensure 2025 present)
+  // Load seasons
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        setLoadingSeasons(true);
-        const s = await fetchSeasons();
+        setError(null);
+        const raw = await fetchUserSeasons();
         if (!active) return;
-        const merged = Array.from(new Set(["2025", ...s])).sort((a, b) => Number(b) - Number(a));
-        setSeasons(merged);
-        if (!merged.includes(season)) setSeason(merged[0] ?? "2025");
-      } finally {
-        if (active) setLoadingSeasons(false);
+        const yrs = extractSeasons(raw);
+        setSeasons(yrs.length ? yrs : [2025]);
+        if (yrs.length && !yrs.includes(season)) setSeason(yrs[0]);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load seasons');
       }
     })();
     return () => {
@@ -47,24 +71,24 @@ export default function HistoryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load leagues when season changes
+  // Load leagues for selected season
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        setLeaguesError(null);
-        setLoadingLeagues(true);
+        setLoading(true);
+        setError(null);
         setLeagues([]);
-        setLeagueKey("");
-        const ls = await fetchLeaguesBySeason(season);
+        setLeagueKey('');
+        const raw = await fetchLeagues(String(season));
         if (!active) return;
+        const ls = coerceLeagueList(raw);
         setLeagues(ls);
-        if (ls[0]?.leagueKey) setLeagueKey(ls[0].leagueKey);
+        if (ls[0]) setLeagueKey(ls[0].league_key);
       } catch (e) {
-        if (!active) return;
-        setLeaguesError(e instanceof Error ? e.message : "Failed to load leagues");
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load leagues');
       } finally {
-        if (active) setLoadingLeagues(false);
+        if (active) setLoading(false);
       }
     })();
     return () => {
@@ -72,189 +96,104 @@ export default function HistoryPage() {
     };
   }, [season]);
 
-  // Load standings when league changes
+  // Load standings (used as a proxy for past champions list later)
   useEffect(() => {
-    const ac = new AbortController();
     let active = true;
     (async () => {
-      if (!leagueKey) {
-        setStandings([]);
-        return;
-      }
+      if (!leagueKey) return;
       try {
-        setStandingsError(null);
-        setLoadingStandings(true);
-        const res = await fetchStandings({ season, leagueKey, signal: ac.signal });
+        setLoading(true);
+        setError(null);
+        await fetchStandings(leagueKey).catch(() => null);
         if (!active) return;
-        setStandings(res.standings ?? []);
+        setStandings([]); // plug real parser later
       } catch (e) {
-        if (!active) return;
-        setStandingsError(e instanceof Error ? e.message : "Failed to load standings");
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load standings');
       } finally {
-        if (active) setLoadingStandings(false);
+        if (active) setLoading(false);
       }
     })();
     return () => {
       active = false;
-      ac.abort();
     };
-  }, [season, leagueKey]);
+  }, [leagueKey]);
 
-  const champion = useMemo(() => {
-    if (!standings || standings.length === 0) return null;
-    return [...standings].sort((a, b) => (a.rank || 999) - (b.rank || 999))[0] ?? null;
-  }, [standings]);
+  const timeline = useMemo(() => {
+    // placeholder structure until we wire parsers
+    return seasons.map((y) => ({ year: y, champion: null as TeamStanding | null }));
+  }, [seasons]);
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-zinc-950">
-      {/* Header */}
-      <section className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-black">
-        <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
-          <div className="flex items-baseline justify-between gap-4">
-            <div>
-              <p className="text-sm uppercase tracking-widest text-red-400">Archive</p>
-              <h1 className="mt-1 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-                League History
-              </h1>
-              <p className="mt-3 max-w-2xl text-lg leading-7 text-zinc-300">
-                Jump into any season and league, preview standings, then open the dashboard.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      <section className="mx-auto max-w-5xl px-6 py-10">
+        <h1 className="text-2xl font-black tracking-tight">League History</h1>
+        <p className="mt-2 text-sm text-zinc-400">
+          Pick a season & league to view past champions and notable records.
+        </p>
 
-      {/* Controls */}
-      <section className="mx-auto max-w-7xl px-6 pb-8 lg:px-8">
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-3">
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-            <label htmlFor="season" className="block text-xs font-semibold uppercase tracking-wide text-zinc-400">
-              Season
-            </label>
+            <label className="mb-2 block text-xs font-semibold text-zinc-400">Season</label>
             <select
-              id="season"
-              value={season}
-              onChange={(e) => setSeason(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-800 px-2 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-red-600"
-              disabled={loadingSeasons}
+              className="mb-4 w-full rounded-lg bg-zinc-800 px-3 py-2 text-sm"
+              value={String(season)}
+              onChange={(e) => setSeason(Number(e.target.value))}
             >
-              {seasons.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+              {seasons.map((y) => (
+                <option key={y} value={y}>
+                  {y}
                 </option>
               ))}
             </select>
-            {loadingSeasons && <p className="mt-1 text-[11px] text-zinc-500">Loading seasons…</p>}
-          </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:col-span-2">
-            <label htmlFor="league" className="block text-xs font-semibold uppercase tracking-wide text-zinc-400">
-              League
-            </label>
-            <div className="mt-1 flex gap-2">
-              <select
-                id="league"
-                value={leagueKey}
-                onChange={(e) => setLeagueKey(e.target.value)}
-                className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-2 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-red-600"
-                disabled={loadingLeagues || leagues.length === 0}
-              >
-                {leagues.length === 0 ? (
-                  <option value="" disabled>
-                    {leaguesError ? "Sign in to Yahoo & refresh" : "No leagues found"}
-                  </option>
-                ) : (
-                  leagues.map((l) => (
-                    <option key={l.leagueKey} value={l.leagueKey}>
-                      {l.name}
-                    </option>
-                  ))
-                )}
-              </select>
+            <label className="mb-2 block text-xs font-semibold text-zinc-400">League</label>
+            <select
+              className="mb-2 w-full rounded-lg bg-zinc-800 px-3 py-2 text-sm"
+              value={leagueKey}
+              onChange={(e) => setLeagueKey(e.target.value)}
+              disabled={!leagues.length}
+            >
+              {leagues.map((l) => (
+                <option key={l.league_key} value={l.league_key}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
 
-              <Link
-                href={
-                  leagueKey
-                    ? `/fantasy?season=${encodeURIComponent(season)}&leagueKey=${encodeURIComponent(leagueKey)}&week=0`
-                    : "#"
-                }
-                aria-disabled={!leagueKey}
-                className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold ${
-                  leagueKey
-                    ? "bg-red-600 text-white hover:bg-red-500"
-                    : "cursor-not-allowed bg-zinc-800 text-zinc-500"
-                }`}
-              >
-                Open Dashboard
-              </Link>
-            </div>
-            {loadingLeagues && <p className="mt-1 text-[11px] text-zinc-500">Loading leagues…</p>}
-            {leaguesError && <p className="mt-1 text-[11px] text-amber-400">{leaguesError}</p>}
-          </div>
-        </div>
-      </section>
-
-      {/* Standings Preview */}
-      <section className="mx-auto max-w-7xl px-6 pb-16 lg:px-8">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl ring-1 ring-black/10">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-white">Standings Preview</h2>
-            {champion && (
-              <div className="hidden items-center gap-2 rounded-lg border border-yellow-700/50 bg-yellow-900/20 px-3 py-1.5 text-sm ring-1 ring-yellow-400/20 sm:flex">
-                <span className="text-yellow-300">Champion:</span>
-                <span className="font-medium text-white">{champion.teamName}</span>
-              </div>
+            {error && <p className="text-xs text-red-400">{error}</p>}
+            {loading && <p className="text-xs text-zinc-400">Loading…</p>}
+            {!leagues.length && (
+              <p className="text-sm text-zinc-400">
+                No leagues found. You may need to{' '}
+                <Link href="/signin" className="underline">
+                  sign in with Yahoo
+                </Link>
+                .
+              </p>
             )}
           </div>
 
-          {loadingStandings ? (
-            <div className="grid gap-2">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-10 animate-pulse rounded-md bg-zinc-800" />
-              ))}
+          <div className="md:col-span-2">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+              <h3 className="mb-3 text-lg font-bold tracking-tight">Champions Timeline</h3>
+              <ul className="space-y-3">
+                {timeline.map((row) => (
+                  <li key={row.year} className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{row.year}</span>
+                    {row.champion ? (
+                      <div className="flex items-center gap-2">
+                        <PlayerHeadshot name={row.champion.team.name} src={row.champion.team.logo ?? undefined} size={20} />
+                        <span className="text-sm">{row.champion.team.name}</span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-zinc-500">—</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-xs text-zinc-500">Historical parsing to be connected next.</p>
             </div>
-          ) : standingsError ? (
-            <div className="rounded-lg border border-amber-900/60 bg-amber-950/40 p-3 text-amber-300">
-              {standingsError}
-            </div>
-          ) : standings.length === 0 ? (
-            <p className="text-zinc-400">No standings available for this league.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-zinc-800 text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-zinc-400">
-                    <th className="px-3 py-2">Rank</th>
-                    <th className="px-3 py-2">Team</th>
-                    <th className="px-3 py-2">W-L-T</th>
-                    <th className="px-3 py-2">PF</th>
-                    <th className="px-3 py-2">PA</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800">
-                  {[...standings]
-                    .sort((a, b) => (a.rank || 999) - (b.rank || 999))
-                    .map((t) => (
-                      <tr key={t.teamKey} className="hover:bg-zinc-800/40">
-                        <td className="px-3 py-2 text-zinc-300">#{t.rank}</td>
-                        <td className="px-3 py-2">
-                          <div className="flex items-center gap-3">
-                            <PlayerHeadshot name={t.teamName} size={36} rounded="lg" />
-                            <span className="font-medium text-white">{t.teamName}</span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-zinc-300">
-                          {t.wins}-{t.losses}
-                          {t.ties ? `-${t.ties}` : ""}
-                        </td>
-                        <td className="px-3 py-2 text-zinc-300">{t.pointsFor.toFixed(1)}</td>
-                        <td className="px-3 py-2 text-zinc-300">{t.pointsAgainst.toFixed(1)}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          </div>
         </div>
       </section>
     </main>

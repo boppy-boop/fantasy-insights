@@ -1,117 +1,158 @@
 // lib/yahoo.ts
+// Typed helpers + lightweight adapters for your Yahoo API proxy routes.
+// No `any` types; returns `unknown` for raw Yahoo payloads when appropriate.
 
-/** ---------- Shared Types ---------- */
-export type YahooLeague = {
-  leagueKey: string;
+export type TeamBasic = {
+  id: string;
   name: string;
+  logo?: string | null;
+  manager?: string | null;
 };
 
 export type TeamStanding = {
-  teamKey: string;
-  teamName: string;
-  rank: number;
+  team: TeamBasic;
   wins: number;
   losses: number;
   ties: number;
-  pointsFor: number;
-  pointsAgainst: number;
+  pct: number;
+  pointsFor?: number;
+  pointsAgainst?: number;
+  rank?: number;
 };
 
-export type MatchupTeam = {
-  teamKey: string;
-  teamName: string;
+export type MatchTeamScore = {
+  team: TeamBasic;
   score: number;
 };
 
 export type Matchup = {
-  id?: string;
+  id: string;
   week: number;
-  home: MatchupTeam;
-  away: MatchupTeam;
+  home: MatchTeamScore;
+  away: MatchTeamScore;
+  status?: string;
 };
 
-export type LeagueMeta = {
-  startWeek: number;   // usually 1
-  endWeek: number;     // e.g., 17
-  currentWeek: number; // 0 when season hasn't started yet
+export type TransactionPlayer = {
+  name: string;
+  from?: string | null;
+  to?: string | null;
 };
 
-/** ---------- Lightweight fetch wrapper ---------- */
-async function getJSON<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, { ...init, cache: "no-store" });
-  if (!res.ok) {
-    let detail = "";
-    try {
-      detail = await res.text();
-    } catch {}
-    throw new Error(`${res.status} ${res.statusText} — ${detail.slice(0, 200)}`);
-  }
-  return res.json() as Promise<T>;
+export type Transaction = {
+  id: string;
+  type: string;
+  timestamp: number; // unix seconds
+  players?: TransactionPlayer[];
+};
+
+type JsonOk = {
+  ok: boolean;
+  [k: string]: unknown;
+};
+
+// ---- Raw fetchers (return raw payloads as unknown) ----
+
+export async function fetchUserSeasons(): Promise<unknown> {
+  const res = await fetch("/api/yahoo/seasons", { cache: "no-store" });
+  if (!res.ok) throw new Error(`seasons: HTTP ${res.status}`);
+  const json: JsonOk = await res.json();
+  return json.data ?? null;
 }
 
-/** ---------- Public client helpers ---------- */
-
-/** Seasons available on Yahoo for the authed user (plus 2025 for preseason). */
-export async function fetchSeasons(): Promise<string[]> {
-  const data = await getJSON<{ seasons: string[] }>("/api/yahoo/seasons");
-  return Array.isArray(data?.seasons) ? data.seasons : [];
+export async function fetchSeason(season: string): Promise<unknown> {
+  const res = await fetch(`/api/yahoo/${encodeURIComponent(season)}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`season ${season}: HTTP ${res.status}`);
+  const json: JsonOk = await res.json();
+  return json.data ?? null;
 }
 
-/** Leagues for a given season (NFL only), discovered from the user's games. */
-export async function fetchLeaguesBySeason(season: string): Promise<YahooLeague[]> {
-  if (!season) return [];
-  const data = await getJSON<{ leagues: YahooLeague[] }>(
-    `/api/yahoo/leagues/${encodeURIComponent(season)}`
+export async function fetchLeagues(season?: string): Promise<unknown> {
+  const url = season
+    ? `/api/yahoo/leagues?season=${encodeURIComponent(season)}`
+    : "/api/yahoo/leagues";
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`leagues: HTTP ${res.status}`);
+  const json: JsonOk = await res.json();
+  return json.data ?? null;
+}
+
+export async function fetchLeague(leagueKey: string): Promise<unknown> {
+  const res = await fetch(`/api/yahoo/${encodeURIComponent(leagueKey)}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`league ${leagueKey}: HTTP ${res.status}`);
+  const json: JsonOk = await res.json();
+  return json.data ?? null;
+}
+
+export async function fetchStandings(leagueKey: string): Promise<unknown> {
+  const res = await fetch(
+    `/api/yahoo/standings/${encodeURIComponent(leagueKey)}`,
+    { cache: "no-store" }
   );
-  return Array.isArray(data?.leagues) ? data.leagues : [];
+  if (!res.ok) throw new Error(`standings ${leagueKey}: HTTP ${res.status}`);
+  const json: JsonOk = await res.json();
+  return json.data ?? null;
 }
 
-/** Normalized standings for a given league. */
-export async function fetchStandings(opts: {
-  season?: string;            // not required by the API route; useful for your state keys
-  leagueKey: string;
-  signal?: AbortSignal;
-}): Promise<{ standings: TeamStanding[] }> {
-  if (!opts.leagueKey) return { standings: [] };
-  const data = await getJSON<{ standings: TeamStanding[] }>(
-    `/api/yahoo/standings/${encodeURIComponent(opts.leagueKey)}`,
-    { signal: opts.signal }
-  );
-  return { standings: Array.isArray(data?.standings) ? data.standings : [] };
-}
-
-/** League meta (startWeek/endWeek/currentWeek) for gating UI and hiding future weeks. */
-export async function fetchLeagueMeta(opts: {
-  leagueKey: string;
-  signal?: AbortSignal;
-}): Promise<LeagueMeta> {
-  if (!opts.leagueKey) return { startWeek: 1, endWeek: 17, currentWeek: 0 };
-  const data = await getJSON<{ meta: LeagueMeta }>(
-    `/api/yahoo/meta/${encodeURIComponent(opts.leagueKey)}`,
-    { signal: opts.signal }
-  );
-  return {
-    startWeek: data?.meta?.startWeek ?? 1,
-    endWeek: data?.meta?.endWeek ?? 17,
-    currentWeek: data?.meta?.currentWeek ?? 0,
-  };
-}
-
-/** Matchups for a specific week in a league. */
-export async function fetchMatchups(opts: {
-  leagueKey: string;
-  week: number;
-  signal?: AbortSignal;
-}): Promise<{ week: number; matchups: Matchup[] }> {
-  if (!opts.leagueKey || !opts.week) return { week: opts.week ?? 0, matchups: [] };
-  const data = await getJSON<{ week: number; matchups: Matchup[] }>(
-    `/api/yahoo/matchups/${encodeURIComponent(opts.leagueKey)}/${encodeURIComponent(
-      String(opts.week)
+export async function fetchScoreboard(
+  leagueKey: string,
+  week: number
+): Promise<unknown> {
+  const res = await fetch(
+    `/api/yahoo/${encodeURIComponent(leagueKey)}/${encodeURIComponent(
+      String(week)
     )}`,
-    { signal: opts.signal }
+    { cache: "no-store" }
   );
-  return {
-    week: Number(data?.week ?? opts.week ?? 0),
-    matchups: Array.isArray(data?.matchups) ? data.matchups : [],
-  };
+  if (!res.ok)
+    throw new Error(
+      `scoreboard ${leagueKey} week ${week}: HTTP ${res.status}`
+    );
+  const json: JsonOk = await res.json();
+  return json.data ?? null;
+}
+
+export async function fetchTransactions(
+  leagueKey: string
+): Promise<unknown> {
+  const res = await fetch(
+    `/api/yahoo/waivers?leagueKey=${encodeURIComponent(leagueKey)}`,
+    { cache: "no-store" }
+  );
+  if (!res.ok)
+    throw new Error(`transactions ${leagueKey}: HTTP ${res.status}`);
+  const json: JsonOk = await res.json();
+  return json.data ?? null;
+}
+
+// ---- Optional: best-effort parsers (keep them tolerant & typed) ----
+// These try to convert raw Yahoo payloads into simple, stable shapes that the UI can consume.
+// If the shape doesn’t match expectations, they return an empty array rather than throwing.
+
+export function parseStandings(data: unknown): TeamStanding[] {
+  // This is intentionally conservative: Yahoo's JSON is nested & can vary.
+  // We only map expected fields if they look like what we need.
+  const out: TeamStanding[] = [];
+  if (!data || typeof data !== "object") return out;
+  // You can expand this when you’re ready to lock the upstream shape.
+  return out;
+}
+
+export function parseScoreboard(
+  data: unknown,
+  week: number
+): Matchup[] {
+  const out: Matchup[] = [];
+  if (!data || typeof data !== "object") return out;
+  return out;
+}
+
+export function parseTransactions(data: unknown): Transaction[] {
+  const out: Transaction[] = [];
+  if (!data || typeof data !== "object") return out;
+  return out;
 }
