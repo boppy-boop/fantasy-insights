@@ -10,7 +10,24 @@ import {
 } from '@/lib/yahoo';
 import WeeklyNotes from '@/components/WeeklyNotes';
 import ThisWeek from '@/components/ThisWeek';
+import DraftInsights from '@/components/DraftInsights';
 import { computeWeeklyInsights } from '@/lib/insights';
+
+// Try to load your season 2025 draft data regardless of export style
+async function loadDraftPicks(): Promise<unknown> {
+  try {
+    const mod = await import('@/lib/season2025');
+    // Support named or default exports
+    // e.g. export const draftPicks2025 = [...];  OR  export default [...]
+    const cand =
+      (mod as Record<string, unknown>)?.draftPicks2025 ??
+      (mod as Record<string, unknown>)?.draftPicks ??
+      (mod as Record<string, unknown>)?.default;
+    return cand ?? [];
+  } catch {
+    return [];
+  }
+}
 
 export const revalidate = 300; // ISR
 
@@ -29,6 +46,9 @@ export default async function FantasyPage() {
   // 3) Compute insights for WeeklyNotes / ThisWeek
   const insights = computeWeeklyInsights(matchups, standings);
 
+  // 4) Load draft data for DraftInsights
+  const draftPicks = await loadDraftPicks();
+
   return (
     <main className="p-8 grid gap-6">
       <header className="flex items-baseline gap-3">
@@ -39,11 +59,12 @@ export default async function FantasyPage() {
       {/* Weekly summary cards */}
       <WeeklyNotes insights={insights} />
 
-      {/* Matchup list for this week (client component, reads API route or passed data) */}
+      {/* Draft Insights (restored “fun stuff”) */}
+      <DraftInsights picks={draftPicks} />
+
+      {/* Matchup list for this week */}
       <section className="rounded-xl border border-zinc-800 p-4">
         <h2 className="text-lg mb-2">This Week — Week {currentWeek}</h2>
-        {/* If your ThisWeek component expects to fetch from the API itself, pass only labels;
-            if you refactored it to accept data, you can pass { standings, matchups } instead. */}
         <ThisWeek standings={standings} matchups={matchups} weekLabel={`W${currentWeek}`} />
       </section>
     </main>
