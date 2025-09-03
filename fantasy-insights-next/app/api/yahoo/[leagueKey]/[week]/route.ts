@@ -1,37 +1,35 @@
+// app/api/yahoo/[leagueKey]/[week]/route.ts
 import { NextResponse } from 'next/server';
 import { fetchMatchups } from '@/lib/yahoo';
 
- export const runtime = 'nodejs'; // safer for Node libs / Yahoo SDK
+export const runtime = 'nodejs';
 
-type Params = { leagueKey: string; week: string };
-// ✅ Most compatible with Next 15 type checker
+type _P = { leagueKey: string; week: string };
+
 export async function GET(
   _req: Request,
-  context: { params: Promise<{ leagueKey: string; week: string }> }
+  { params }: { params: Promise<_P> }
 ) {
-  const { leagueKey, week } = await context.params;
+  const { leagueKey, week } = await params;
 
-   if (!leagueKey) {
-     return NextResponse.json({ error: 'Missing leagueKey' }, { status: 400 });
-   }
-   if (!week || !/^\d+$/.test(week)) {
-     return NextResponse.json({ error: 'Invalid week' }, { status: 400 });
-   }
+  if (!leagueKey) {
+    return NextResponse.json({ error: 'Missing leagueKey' }, { status: 400 });
+  }
+  if (!/^\d+$/.test(week)) {
+    return NextResponse.json({ error: 'Invalid week' }, { status: 400 });
+  }
 
-   try {
-     const data = await fetchMatchups(leagueKey, Number(week));
-
-     return NextResponse.json(data, {
-       status: 200,
-       headers: {
-         'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
-       },
-     });
-   } catch (err) {
-     console.error('GET /api/yahoo/[leagueKey]/[week] error:', err);
-     return NextResponse.json(
-       { error: 'Failed to fetch Yahoo matchups' },
-       { status: 500 }
-     );
-   }
- }
+  try {
+    const data = await fetchMatchups(leagueKey, Number(week));
+    return NextResponse.json(data, {
+      status: 200,
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+    });
+  } catch (err) {
+    console.error('GET /api/yahoo/[leagueKey]/[week] error:', err);
+    return NextResponse.json({ error: 'Failed to fetch Yahoo matchups' }, { status: 500 });
+  }
+}

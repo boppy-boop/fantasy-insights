@@ -41,20 +41,17 @@ function buildSeedMap(standings: TeamStanding[]): Map<string, number> {
   const map = new Map<string, number>();
   if (!Array.isArray(standings)) return map;
 
-  // Ensure sorted by best rank first (1..N). If ranks are already set, use them.
-  const sorted = [...standings].sort((a, b) => a.rank - b.rank ||
-    (b.wins - a.wins) || (b.pointsFor - a.pointsFor));
-
+  // Prefer explicit rank; fallback to wins/PF if needed
+  const sorted = [...standings].sort(
+    (a, b) => (a.rank ?? 0) - (b.rank ?? 0) || (b.wins - a.wins) || (b.pointsFor - a.pointsFor)
+  );
   sorted.forEach((t, idx) => {
     map.set(t.teamKey, t.rank || idx + 1);
   });
   return map;
 }
 
-/**
- * Compute weekly insights from a list of matchups (for a single week)
- * using the standardized Matchup shape (teams[0], teams[1]).
- */
+/** Compute weekly insights from standardized Matchup shape (teams[0], teams[1]) */
 export function computeWeeklyInsights(
   matchups: Matchup[],
   standings: TeamStanding[] = []
@@ -71,7 +68,6 @@ export function computeWeeklyInsights(
   const upsets: WeeklyInsights['upsets'] = [];
 
   for (const m of matchups) {
-    // Expect exactly 2 teams per matchup
     if (!m?.teams || m.teams.length < 2) continue;
     const [home, away] = m.teams;
 
@@ -88,7 +84,7 @@ export function computeWeeklyInsights(
       teamOfWeek = localTop;
     }
 
-    // Blowout / Closest (by absolute margin)
+    // Blowout / Closest
     const diff = margin(homeScore, awayScore);
     if (!blowout || diff > blowout.margin) {
       blowout = homeScore >= awayScore
@@ -101,13 +97,12 @@ export function computeWeeklyInsights(
         : { home: awayName, away: homeName, margin: diff };
     }
 
-    // Upset: winner has a WORSE seed number (higher rank value) than loser
-    // e.g., seed 7 beats seed 2 -> seedDiff = 5 (positive = upset)
+    // Upset: winner has worse seed number (higher rank value) than loser
     const winner = homeScore >= awayScore ? home : away;
     const loser = homeScore >= awayScore ? away : home;
     const wSeed = seeds.get(winner.teamKey) ?? Number.MAX_SAFE_INTEGER;
     const lSeed = seeds.get(loser.teamKey) ?? Number.MIN_SAFE_INTEGER;
-    const seedDiff = wSeed - lSeed; // positive => underdog beat favorite
+    const seedDiff = wSeed - lSeed;
 
     if (seedDiff > 0) {
       upsets.push({
@@ -119,17 +114,17 @@ export function computeWeeklyInsights(
     }
   }
 
-  // Sort upsets by "how big" they are: bigger seedDiff first, tie-breaker by margin
   upsets.sort((a, b) => b.seedDiff - a.seedDiff || b.margin - a.margin);
 
   return { teamOfWeek, blowout, closest, upsets };
 }
 
-/** Compute simple power rankings from standings + (optionally) weeks */
+/** Simple power rankings; `_allWeeks` kept for future weighting */
 export function computePowerRankings(
   standings: TeamStanding[],
-  _allWeeks: WeekData[]
+  _allWeeks?: WeekData[]
 ): LeaguePowerRanking[] {
+  void _allWeeks; // silence unused param warning
   const rows = (standings ?? []).map((t) => {
     const score = t.wins * 2 + t.pointsFor / 100 + (t.pointsFor - t.pointsAgainst) / 50;
     return { teamKey: t.teamKey, teamName: t.teamName, score, rank: 0 };

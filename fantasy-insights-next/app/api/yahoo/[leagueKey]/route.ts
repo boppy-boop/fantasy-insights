@@ -4,11 +4,11 @@ import { fetchLeagueMeta } from '@/lib/yahoo';
 
 export const runtime = 'nodejs';
 
-type P = { leagueKey: string };
+type _P = { leagueKey: string };
 
 export async function GET(
   _req: Request,
-  { params }: { params: Promise<P> } // <- v15-friendly typing
+  { params }: { params: Promise<_P> }
 ) {
   const { leagueKey } = await params;
 
@@ -22,13 +22,11 @@ export async function GET(
       status: 200,
       headers: {
         'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+        'Content-Type': 'application/json; charset=utf-8',
       },
     });
   } catch (err) {
     console.error('GET /api/yahoo/[leagueKey] error:', err);
-    return NextResponse.json(
-      { error: 'Failed to fetch league meta' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch league meta' }, { status: 500 });
   }
 }
