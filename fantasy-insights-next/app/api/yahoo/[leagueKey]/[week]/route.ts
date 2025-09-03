@@ -1,81 +1,37 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { NextResponse } from 'next/server';
+import { fetchMatchups } from '@/lib/yahoo';
 
-/**
- * GET /api/yahoo/[leagueKey]/[week]
- * Returns the Yahoo Fantasy scoreboard (matchups) for a specific league + week.
- *
- * Yahoo endpoint:
- *   /fantasy/v2/league/{league_key}/scoreboard;week={WEEK}?format=json
- *
- * Notes:
- * - leagueKey typically looks like "nfl.l.123456".
- * - week must be a positive integer (Yahoo will return playoffs as well if applicable).
- * - We return the raw Yahoo response as `data: unknown`.
- */
+ export const runtime = 'nodejs'; // safer for Node libs / Yahoo SDK
+
+type Params = { leagueKey: string; week: string };
+// ✅ Most compatible with Next 15 type checker
 export async function GET(
   _req: Request,
-  context: { params: { leagueKey: string; week: string } }
+  context: { params: Promise<{ leagueKey: string; week: string }> }
 ) {
-  const leagueKey = context.params.leagueKey?.trim();
-  const weekParam = context.params.week?.trim();
+  const { leagueKey, week } = await context.params;
 
-  const session = await auth();
-  const yahoo = (session as { yahoo?: { accessToken: string | null } } | null)?.yahoo;
-  const accessToken = yahoo?.accessToken ?? null;
+   if (!leagueKey) {
+     return NextResponse.json({ error: 'Missing leagueKey' }, { status: 400 });
+   }
+   if (!week || !/^\d+$/.test(week)) {
+     return NextResponse.json({ error: 'Invalid week' }, { status: 400 });
+   }
 
-  if (!accessToken) {
-    return NextResponse.json({ error: "Not authenticated with Yahoo" }, { status: 401 });
-  }
+   try {
+     const data = await fetchMatchups(leagueKey, Number(week));
 
-  if (!leagueKey) {
-    return NextResponse.json(
-      { error: "Missing leagueKey (expected path like /api/yahoo/nfl.l.123456/1)" },
-      { status: 400 }
-    );
-  }
-
-  if (!/^\d+$/.test(weekParam)) {
-    return NextResponse.json(
-      { error: "Invalid week. Expected a positive integer (e.g., 1, 2, ...)." },
-      { status: 400 }
-    );
-  }
-
-  const week = Number(weekParam);
-
-  const url = `https://fantasysports.yahooapis.com/fantasy/v2/league/${encodeURIComponent(
-    leagueKey
-  )}/scoreboard;week=${encodeURIComponent(String(week))}?format=json`;
-
-  try {
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: "no-store",
-      next: { revalidate: 0 },
-    });
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      return NextResponse.json(
-        { error: "Yahoo API error", status: res.status, body },
-        { status: 502 }
-      );
-    }
-
-    const data: unknown = await res.json();
-
-    return NextResponse.json(
-      {
-        ok: true,
-        leagueKey,
-        week,
-        data,
-      },
-      { status: 200 }
-    );
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+     return NextResponse.json(data, {
+       status: 200,
+       headers: {
+         'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+       },
+     });
+   } catch (err) {
+     console.error('GET /api/yahoo/[leagueKey]/[week] error:', err);
+     return NextResponse.json(
+       { error: 'Failed to fetch Yahoo matchups' },
+       { status: 500 }
+     );
+   }
+ }

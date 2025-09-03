@@ -1,158 +1,164 @@
 // lib/yahoo.ts
-// Typed helpers + lightweight adapters for your Yahoo API proxy routes.
-// No `any` types; returns `unknown` for raw Yahoo payloads when appropriate.
+// Compatibility shim to keep pages compiling/running.
+// Replace internals with real Yahoo API calls later, but keep shapes the same.
 
-export type TeamBasic = {
-  id: string;
+// ---------- Types ----------
+export type YahooLeague = {
+  leagueKey: string;
   name: string;
-  logo?: string | null;
-  manager?: string | null;
+  season: number;
+  numTeams?: number;
 };
 
 export type TeamStanding = {
-  team: TeamBasic;
+  teamKey: string;
+  teamName: string;
   wins: number;
   losses: number;
   ties: number;
-  pct: number;
-  pointsFor?: number;
-  pointsAgainst?: number;
-  rank?: number;
+  pointsFor: number;
+  pointsAgainst: number;
+  rank: number;
 };
 
-export type MatchTeamScore = {
-  team: TeamBasic;
-  score: number;
+export type MatchupTeam = {
+  teamKey: string;
+  teamName: string;
+  points: number;
+  projected?: number;
 };
 
 export type Matchup = {
-  id: string;
   week: number;
-  home: MatchTeamScore;
-  away: MatchTeamScore;
-  status?: string;
+  leagueKey: string;
+  teams: MatchupTeam[];
 };
 
-export type TransactionPlayer = {
+export type LeagueMeta = {
+  leagueKey: string;
+  season: number;
   name: string;
-  from?: string | null;
-  to?: string | null;
+  scoringType: 'head' | 'points' | 'roto' | 'other';
+  startWeek: number;
+  currentWeek: number;
+  endWeek: number;
+  numTeams: number;
 };
 
-export type Transaction = {
-  id: string;
-  type: string;
-  timestamp: number; // unix seconds
-  players?: TransactionPlayer[];
-};
+// ---------- Stub data helpers ----------
+const sampleTeams = (leagueKey: string) => [
+  { teamKey: `${leagueKey}.t.1`, teamName: 'Team A' },
+  { teamKey: `${leagueKey}.t.2`, teamName: 'Team B' },
+  { teamKey: `${leagueKey}.t.3`, teamName: 'Team C' },
+  { teamKey: `${leagueKey}.t.4`, teamName: 'Team D' },
+];
 
-type JsonOk = {
-  ok: boolean;
-  [k: string]: unknown;
-};
-
-// ---- Raw fetchers (return raw payloads as unknown) ----
-
-export async function fetchUserSeasons(): Promise<unknown> {
-  const res = await fetch("/api/yahoo/seasons", { cache: "no-store" });
-  if (!res.ok) throw new Error(`seasons: HTTP ${res.status}`);
-  const json: JsonOk = await res.json();
-  return json.data ?? null;
+function seededRand(seed: string) {
+  let x = 0;
+  for (let i = 0; i < seed.length; i++) x = (x * 31 + seed.charCodeAt(i)) >>> 0;
+  return () => {
+    // simple LCG-ish
+    x = (1103515245 * x + 12345) >>> 0;
+    return (x % 10000) / 10000;
+  };
 }
 
-export async function fetchSeason(season: string): Promise<unknown> {
-  const res = await fetch(`/api/yahoo/${encodeURIComponent(season)}`, {
-    cache: "no-store",
+// ---------- API: Seasons ----------
+export async function fetchSeasons(): Promise<number[]> {
+  // Return recent seasons; adjust as needed
+  return [2025, 2024, 2023];
+}
+
+// ---------- API: Leagues by season ----------
+export async function fetchLeaguesBySeason(season: number): Promise<YahooLeague[]> {
+  // Stub two leagues per season
+  return [
+    { leagueKey: `${season}.l.1001`, name: `RGFL ${season}`, season, numTeams: 12 },
+    { leagueKey: `${season}.l.2002`, name: `Friends League ${season}`, season, numTeams: 10 },
+  ];
+}
+
+// ---------- API: League meta ----------
+export async function fetchLeagueMeta(leagueKey: string): Promise<LeagueMeta> {
+  const season = Number(leagueKey.split('.')[0]) || 2025;
+  return {
+    leagueKey,
+    season,
+    name: `League ${leagueKey}`,
+    scoringType: 'head',
+    startWeek: 1,
+    currentWeek: 1,
+    endWeek: 17,
+    numTeams: sampleTeams(leagueKey).length,
+  };
+}
+
+// ---------- API: Standings ----------
+export async function fetchStandings(leagueKey: string): Promise<TeamStanding[]> {
+  const teams = sampleTeams(leagueKey);
+  const rnd = seededRand(`${leagueKey}-standings`);
+  const withStats = teams.map((t, i) => {
+    const wins = Math.floor(rnd() * 10);
+    const losses = Math.floor(rnd() * 10);
+    const ties = Math.floor(rnd() * 2);
+    const pointsFor = Math.round((80 + rnd() * 80) * 10) / 10;
+    const pointsAgainst = Math.round((80 + rnd() * 80) * 10) / 10;
+    return {
+      teamKey: t.teamKey,
+      teamName: t.teamName,
+      wins,
+      losses,
+      ties,
+      pointsFor,
+      pointsAgainst,
+      rank: i + 1,
+    } as TeamStanding;
   });
-  if (!res.ok) throw new Error(`season ${season}: HTTP ${res.status}`);
-  const json: JsonOk = await res.json();
-  return json.data ?? null;
+
+  // Sort by wins desc, PF tiebreaker
+  withStats.sort((a, b) => b.wins - a.wins || b.pointsFor - a.pointsFor);
+  // Re-number rank after sort
+  withStats.forEach((t, idx) => (t.rank = idx + 1));
+
+  return withStats;
 }
 
-export async function fetchLeagues(season?: string): Promise<unknown> {
-  const url = season
-    ? `/api/yahoo/leagues?season=${encodeURIComponent(season)}`
-    : "/api/yahoo/leagues";
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`leagues: HTTP ${res.status}`);
-  const json: JsonOk = await res.json();
-  return json.data ?? null;
-}
+// ---------- API: Matchups ----------
+export async function fetchMatchups(leagueKey: string, week: number): Promise<Matchup[]> {
+  const teams = sampleTeams(leagueKey);
+  const rnd = seededRand(`${leagueKey}-w${week}`);
 
-export async function fetchLeague(leagueKey: string): Promise<unknown> {
-  const res = await fetch(`/api/yahoo/${encodeURIComponent(leagueKey)}`, {
-    cache: "no-store",
+  // Pair teams in simple 1v2, 3v4 matchups
+  const pairs: [typeof teams[number], typeof teams[number]][] = [];
+  for (let i = 0; i < teams.length; i += 2) {
+    if (teams[i + 1]) pairs.push([teams[i], teams[i + 1]]);
+  }
+
+  const matchups: Matchup[] = pairs.map(([a, b]) => {
+    const aPts = Math.round((80 + rnd() * 80) * 10) / 10;
+    const bPts = Math.round((80 + rnd() * 80) * 10) / 10;
+    const aProj = Math.round((aPts + 5 + rnd() * 10) * 10) / 10;
+    const bProj = Math.round((bPts + 5 + rnd() * 10) * 10) / 10;
+
+    return {
+      week,
+      leagueKey,
+      teams: [
+        { teamKey: a.teamKey, teamName: a.teamName, points: aPts, projected: aProj },
+        { teamKey: b.teamKey, teamName: b.teamName, points: bPts, projected: bProj },
+      ],
+    };
   });
-  if (!res.ok) throw new Error(`league ${leagueKey}: HTTP ${res.status}`);
-  const json: JsonOk = await res.json();
-  return json.data ?? null;
+
+  return matchups;
 }
 
-export async function fetchStandings(leagueKey: string): Promise<unknown> {
-  const res = await fetch(
-    `/api/yahoo/standings/${encodeURIComponent(leagueKey)}`,
-    { cache: "no-store" }
-  );
-  if (!res.ok) throw new Error(`standings ${leagueKey}: HTTP ${res.status}`);
-  const json: JsonOk = await res.json();
-  return json.data ?? null;
-}
-
-export async function fetchScoreboard(
-  leagueKey: string,
-  week: number
-): Promise<unknown> {
-  const res = await fetch(
-    `/api/yahoo/${encodeURIComponent(leagueKey)}/${encodeURIComponent(
-      String(week)
-    )}`,
-    { cache: "no-store" }
-  );
-  if (!res.ok)
-    throw new Error(
-      `scoreboard ${leagueKey} week ${week}: HTTP ${res.status}`
-    );
-  const json: JsonOk = await res.json();
-  return json.data ?? null;
-}
-
-export async function fetchTransactions(
-  leagueKey: string
-): Promise<unknown> {
-  const res = await fetch(
-    `/api/yahoo/waivers?leagueKey=${encodeURIComponent(leagueKey)}`,
-    { cache: "no-store" }
-  );
-  if (!res.ok)
-    throw new Error(`transactions ${leagueKey}: HTTP ${res.status}`);
-  const json: JsonOk = await res.json();
-  return json.data ?? null;
-}
-
-// ---- Optional: best-effort parsers (keep them tolerant & typed) ----
-// These try to convert raw Yahoo payloads into simple, stable shapes that the UI can consume.
-// If the shape doesn’t match expectations, they return an empty array rather than throwing.
-
-export function parseStandings(data: unknown): TeamStanding[] {
-  // This is intentionally conservative: Yahoo's JSON is nested & can vary.
-  // We only map expected fields if they look like what we need.
-  const out: TeamStanding[] = [];
-  if (!data || typeof data !== "object") return out;
-  // You can expand this when you’re ready to lock the upstream shape.
-  return out;
-}
-
-export function parseScoreboard(
-  data: unknown,
-  week: number
-): Matchup[] {
-  const out: Matchup[] = [];
-  if (!data || typeof data !== "object") return out;
-  return out;
-}
-
-export function parseTransactions(data: unknown): Transaction[] {
-  const out: Transaction[] = [];
-  if (!data || typeof data !== "object") return out;
-  return out;
-}
+// ---------- Optional: default export for convenience ----------
+const api = {
+  fetchSeasons,
+  fetchLeaguesBySeason,
+  fetchStandings,
+  fetchMatchups,
+  fetchLeagueMeta,
+};
+export default api;
