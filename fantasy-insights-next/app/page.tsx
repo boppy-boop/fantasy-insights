@@ -1,5 +1,9 @@
+// app/page.tsx
 import Link from "next/link";
 import { auth } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function HomePage() {
   const session = await auth();
@@ -120,7 +124,7 @@ export default async function HomePage() {
       {/* Footer */}
       <footer className="border-t border-zinc-900 bg-zinc-950/80">
         <div className="mx-auto max-w-6xl px-6 py-6 text-sm text-zinc-500">
-          &copy; 2025 Rex Grossman Championship S League Insights — built for fun, styled like ESPN.
+          &copy; {new Date().getFullYear()} Rex Grossman Championship S League Insights — built for fun, styled like ESPN.
         </div>
       </footer>
     </main>
