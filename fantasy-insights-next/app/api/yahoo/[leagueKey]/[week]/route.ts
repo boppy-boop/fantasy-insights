@@ -1,11 +1,13 @@
-// app/api/yahoo/[leagueKey]/[week]/route.ts
 import { NextResponse } from 'next/server';
 import { fetchMatchups } from '@/lib/yahoo';
 
 export const runtime = 'nodejs';
 
-export async function GET(_req: Request, ctx: unknown) {
-  const { leagueKey, week } = await (ctx as { params: Promise<{ leagueKey: string; week: string }> }).params;
+export async function GET(
+  _req: Request, 
+  { params }: { params: Promise<{ leagueKey: string; week: string }> }
+) {
+  const { leagueKey, week } = await params;
 
   if (!leagueKey) {
     return NextResponse.json({ error: 'Missing leagueKey' }, { status: 400 });
