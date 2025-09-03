@@ -27,4 +27,4 @@ export async function GET(
     console.error('GET /api/yahoo/[season] error:', err);
     return NextResponse.json({ error: 'Failed to fetch leagues' }, { status: 500 });
   }
-}
+}   
