@@ -1,9 +1,9 @@
 // lib/auth.ts
 // Yahoo OAuth config + callbacks with a typed compatibility layer (no `any`).
-// Works if NextAuth returns v5 object shape OR v4 single handler.
+// Works whether NextAuth returns v5 object shape or v4 single handler.
 
 import NextAuth from "next-auth";
-import type { NextAuthOptions, User } from "next-auth";
+import type { NextAuthOptions } from "next-auth";
 import type { OAuthConfig } from "next-auth/providers/oauth";
 import type { Account, Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
@@ -161,14 +161,13 @@ export const authOptions: NextAuthOptions = {
 };
 
 // ---------- Typed compatibility layer (no `any`) ----------
-
 type RouteHandler = (req: Request, ctx: unknown) => Promise<Response>;
 
 type V5Return = {
   handlers: { GET: RouteHandler; POST: RouteHandler };
   auth: () => Promise<Session | null>;
-  signIn: (...args: never[]) => Promise<unknown>;
-  signOut: (...args: never[]) => Promise<unknown>;
+  signIn: () => Promise<unknown>;
+  signOut: () => Promise<unknown>;
 };
 
 type NextAuthCreate = (opts: NextAuthOptions) => V5Return | RouteHandler;
@@ -179,17 +178,17 @@ const created: V5Return | RouteHandler = (NextAuth as unknown as NextAuthCreate)
 // Exported API (no `any`)
 let _handlers: { GET: RouteHandler; POST: RouteHandler };
 let _auth: () => Promise<Session | null>;
-let _signIn: (...args: never[]) => Promise<unknown>;
-let _signOut: (...args: never[]) => Promise<unknown>;
+let _signIn: () => Promise<unknown>;
+let _signOut: () => Promise<unknown>;
 
 if (typeof created === "function") {
   // NextAuth v4 shape: single handler function used for both GET and POST
   const handler: RouteHandler = created;
   _handlers = { GET: handler, POST: handler };
   _auth = async () => null;
-  _signIn = async (..._args: never[]) =>
+  _signIn = async () =>
     Promise.reject(new Error("signIn() unavailable in this NextAuth version."));
-  _signOut = async (..._args: never[]) =>
+  _signOut = async () =>
     Promise.reject(new Error("signOut() unavailable in this NextAuth version."));
 } else {
   // NextAuth v5 shape
