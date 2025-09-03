@@ -1,14 +1,11 @@
-// app/api/yahoo/[season]/route.ts
 import { NextResponse } from 'next/server';
 import { fetchLeaguesBySeason } from '@/lib/yahoo';
 
 export const runtime = 'nodejs';
 
-type _P = { season: string }; // underscore = silence unused type warning if not referenced elsewhere
-
 export async function GET(
   _req: Request,
-  { params }: { params: Promise<_P> } // Next 15: params may be a Promise
+  { params }: { params: Promise<{ season: string }> }
 ) {
   const { season } = await params;
 
