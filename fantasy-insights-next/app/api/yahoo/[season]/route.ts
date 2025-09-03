@@ -4,8 +4,9 @@ import { fetchLeaguesBySeason } from '@/lib/yahoo';
 
 export const runtime = 'nodejs';
 
-export async function GET(_req: Request, ctx: any) {
-  const { season } = await ctx.params;
+export async function GET(_req: Request, ctx: unknown) {
+  // Next 15: ctx.params may be a Promise — do an internal cast (no explicit any)
+  const { season } = await (ctx as { params: Promise<{ season: string }> }).params;
 
   const n = Number(season);
   if (!Number.isFinite(n)) {

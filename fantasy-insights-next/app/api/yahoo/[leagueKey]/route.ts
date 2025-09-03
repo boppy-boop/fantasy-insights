@@ -4,13 +4,8 @@ import { fetchLeagueMeta } from '@/lib/yahoo';
 
 export const runtime = 'nodejs';
 
-type _P = { leagueKey: string };
-
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<_P> }
-) {
-  const { leagueKey } = await params;
+export async function GET(_req: Request, ctx: unknown) {
+  const { leagueKey } = await (ctx as { params: Promise<{ leagueKey: string }> }).params;
 
   if (!leagueKey) {
     return NextResponse.json({ error: 'Missing leagueKey' }, { status: 400 });

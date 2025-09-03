@@ -4,13 +4,8 @@ import { fetchMatchups } from '@/lib/yahoo';
 
 export const runtime = 'nodejs';
 
-type _P = { leagueKey: string; week: string };
-
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<_P> }
-) {
-  const { leagueKey, week } = await params;
+export async function GET(_req: Request, ctx: unknown) {
+  const { leagueKey, week } = await (ctx as { params: Promise<{ leagueKey: string; week: string }> }).params;
 
   if (!leagueKey) {
     return NextResponse.json({ error: 'Missing leagueKey' }, { status: 400 });
