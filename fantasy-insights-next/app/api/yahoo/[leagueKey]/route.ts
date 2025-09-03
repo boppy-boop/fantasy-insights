@@ -1,68 +1,34 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+// app/api/yahoo/[leagueKey]/route.ts
+import { NextResponse } from 'next/server';
+import { fetchLeagueMeta } from '@/lib/yahoo';
 
-/**
- * GET /api/yahoo/[leagueKey]
- * Fetch Yahoo Fantasy League metadata for a specific leagueKey.
- *
- * Yahoo endpoint:
- *   /fantasy/v2/league/{league_key}?format=json
- *
- * Notes:
- * - leagueKey usually looks like "nfl.l.<leagueId>" (e.g., "nfl.l.123456").
- * - We return the raw Yahoo response as `data: unknown` since the shape can vary.
- */
+export const runtime = 'nodejs';
+
+type P = { leagueKey: string };
+
 export async function GET(
   _req: Request,
-  context: { params: { leagueKey: string } }
+  { params }: { params: Promise<P> } // <- v15-friendly typing
 ) {
-  const leagueKey = context.params.leagueKey?.trim();
-  const session = await auth();
-  const yahoo = (session as { yahoo?: { accessToken: string | null } } | null)?.yahoo;
-  const accessToken = yahoo?.accessToken ?? null;
-
-  if (!accessToken) {
-    return NextResponse.json({ error: "Not authenticated with Yahoo" }, { status: 401 });
-  }
+  const { leagueKey } = await params;
 
   if (!leagueKey) {
-    return NextResponse.json(
-      { error: "Missing leagueKey (expected path like /api/yahoo/nfl.l.123456)" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Missing leagueKey' }, { status: 400 });
   }
 
-  const url = `https://fantasysports.yahooapis.com/fantasy/v2/league/${encodeURIComponent(
-    leagueKey
-  )}?format=json`;
-
   try {
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: "no-store",
-      next: { revalidate: 0 },
-    });
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      return NextResponse.json(
-        { error: "Yahoo API error", status: res.status, body },
-        { status: 502 }
-      );
-    }
-
-    const data: unknown = await res.json();
-
-    return NextResponse.json(
-      {
-        ok: true,
-        leagueKey,
-        data,
+    const meta = await fetchLeagueMeta(leagueKey);
+    return NextResponse.json(meta, {
+      status: 200,
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
       },
-      { status: 200 }
-    );
+    });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('GET /api/yahoo/[leagueKey] error:', err);
+    return NextResponse.json(
+      { error: 'Failed to fetch league meta' },
+      { status: 500 }
+    );
   }
 }
