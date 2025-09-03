@@ -1,5 +1,8 @@
 // lib/auth.ts
+// Your Yahoo OAuth config + callbacks, with a small compatibility layer so this works on NextAuth v4 or v5.
+
 import NextAuth from "next-auth";
+import type { NextAuthOptions } from "next-auth";
 import type { OAuthConfig } from "next-auth/providers/oauth";
 import type { Account, Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
@@ -42,12 +45,8 @@ const yahoo: OAuthConfig<YahooProfile> = {
   },
 };
 
-export const {
-  handlers,
-  auth,
-  signIn,
-  signOut,
-} = NextAuth({
+// ---- Your original callbacks preserved, wrapped in a NextAuthOptions object ----
+export const authOptions: NextAuthOptions = {
   providers: [yahoo],
   session: { strategy: "jwt" },
   callbacks: {
@@ -85,10 +84,16 @@ export const {
         return t;
       }
 
+      // No Yahoo or no tokens tracked → bail
       if (t.provider !== "yahoo" || !t.accessToken || !t.accessTokenExpires) return token;
+
+      // Not yet expired (30s early refresh buffer)
       if (Date.now() < (t.accessTokenExpires - 30_000)) return token;
+
+      // No refresh token → cannot refresh
       if (!t.refreshToken) return token;
 
+      // Try to refresh the Yahoo token
       try {
         const body = new URLSearchParams({
           grant_type: "refresh_token",
@@ -112,6 +117,7 @@ export const {
         });
 
         if (!res.ok) throw new Error(`Yahoo refresh HTTP ${res.status}`);
+
         const json: {
           access_token: string;
           expires_in: number;
@@ -121,8 +127,10 @@ export const {
         t.accessToken = json.access_token;
         t.accessTokenExpires = Date.now() + json.expires_in * 1000;
         if (json.refresh_token) t.refreshToken = json.refresh_token;
+
         return t;
       } catch {
+        // Hard fail → clear tokens (forces re-auth on next usage)
         t.accessToken = null;
         t.accessTokenExpires = null;
         return t;
@@ -150,8 +158,40 @@ export const {
       return session;
     },
   },
-});
+};
 
+// ---- Compatibility layer: supports NextAuth v5 (object) and v4 (handler function) ----
+const created = (NextAuth as unknown as (opts: NextAuthOptions) => any)(authOptions);
+
+// v5 returns an object with handlers/auth/signIn/signOut
+// v4 returns a single handler function; we adapt it so routes can always export GET/POST.
+export const handlers: { GET: any; POST: any } =
+  created && typeof created === "object" && "handlers" in created
+    ? (created.handlers as { GET: any; POST: any })
+    : { GET: created, POST: created };
+
+// `auth` in v5; in v4 we provide a benign fallback that returns null (so logged-out homepage still renders)
+export const auth: () => Promise<Session | null> =
+  created && typeof created === "object" && "auth" in created
+    ? (created.auth as () => Promise<Session | null>)
+    : (async () => null);
+
+// Optional helpers (exist in v5); in v4 these throw if called programmatically.
+export const signIn =
+  created && typeof created === "object" && "signIn" in created
+    ? (created.signIn as (...args: any[]) => Promise<void>)
+    : (async () => {
+        throw new Error("signIn() is not available in this NextAuth version.");
+      });
+
+export const signOut =
+  created && typeof created === "object" && "signOut" in created
+    ? (created.signOut as (...args: any[]) => Promise<void>)
+    : (async () => {
+        throw new Error("signOut() is not available in this NextAuth version.");
+      });
+
+// ---- Helper you already use elsewhere ----
 export async function getYahooAccessTokenFromServer(): Promise<string | null> {
   const session = await auth();
   const yahoo = (session as SessionWithYahoo | null)?.yahoo;
