@@ -1,8 +1,9 @@
 // lib/auth.ts
-// Your Yahoo OAuth config + callbacks, with a small compatibility layer so this works on NextAuth v4 or v5.
+// Yahoo OAuth config + callbacks with a typed compatibility layer (no `any`).
+// Works if NextAuth returns v5 object shape OR v4 single handler.
 
 import NextAuth from "next-auth";
-import type { NextAuthOptions } from "next-auth";
+import type { NextAuthOptions, User } from "next-auth";
 import type { OAuthConfig } from "next-auth/providers/oauth";
 import type { Account, Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
@@ -45,7 +46,7 @@ const yahoo: OAuthConfig<YahooProfile> = {
   },
 };
 
-// ---- Your original callbacks preserved, wrapped in a NextAuthOptions object ----
+// ---------- Your original callbacks, unchanged ----------
 export const authOptions: NextAuthOptions = {
   providers: [yahoo],
   session: { strategy: "jwt" },
@@ -84,16 +85,15 @@ export const authOptions: NextAuthOptions = {
         return t;
       }
 
-      // No Yahoo or no tokens tracked → bail
+      // Not Yahoo or missing tokens
       if (t.provider !== "yahoo" || !t.accessToken || !t.accessTokenExpires) return token;
 
       // Not yet expired (30s early refresh buffer)
-      if (Date.now() < (t.accessTokenExpires - 30_000)) return token;
+      if (Date.now() < t.accessTokenExpires - 30_000) return token;
 
       // No refresh token → cannot refresh
       if (!t.refreshToken) return token;
 
-      // Try to refresh the Yahoo token
       try {
         const body = new URLSearchParams({
           grant_type: "refresh_token",
@@ -160,36 +160,49 @@ export const authOptions: NextAuthOptions = {
   },
 };
 
-// ---- Compatibility layer: supports NextAuth v5 (object) and v4 (handler function) ----
-const created = (NextAuth as unknown as (opts: NextAuthOptions) => any)(authOptions);
+// ---------- Typed compatibility layer (no `any`) ----------
 
-// v5 returns an object with handlers/auth/signIn/signOut
-// v4 returns a single handler function; we adapt it so routes can always export GET/POST.
-export const handlers: { GET: any; POST: any } =
-  created && typeof created === "object" && "handlers" in created
-    ? (created.handlers as { GET: any; POST: any })
-    : { GET: created, POST: created };
+type RouteHandler = (req: Request, ctx: unknown) => Promise<Response>;
 
-// `auth` in v5; in v4 we provide a benign fallback that returns null (so logged-out homepage still renders)
-export const auth: () => Promise<Session | null> =
-  created && typeof created === "object" && "auth" in created
-    ? (created.auth as () => Promise<Session | null>)
-    : (async () => null);
+type V5Return = {
+  handlers: { GET: RouteHandler; POST: RouteHandler };
+  auth: () => Promise<Session | null>;
+  signIn: (...args: never[]) => Promise<unknown>;
+  signOut: (...args: never[]) => Promise<unknown>;
+};
 
-// Optional helpers (exist in v5); in v4 these throw if called programmatically.
-export const signIn =
-  created && typeof created === "object" && "signIn" in created
-    ? (created.signIn as (...args: any[]) => Promise<void>)
-    : (async () => {
-        throw new Error("signIn() is not available in this NextAuth version.");
-      });
+type NextAuthCreate = (opts: NextAuthOptions) => V5Return | RouteHandler;
 
-export const signOut =
-  created && typeof created === "object" && "signOut" in created
-    ? (created.signOut as (...args: any[]) => Promise<void>)
-    : (async () => {
-        throw new Error("signOut() is not available in this NextAuth version.");
-      });
+// Call NextAuth with options
+const created: V5Return | RouteHandler = (NextAuth as unknown as NextAuthCreate)(authOptions);
+
+// Exported API (no `any`)
+let _handlers: { GET: RouteHandler; POST: RouteHandler };
+let _auth: () => Promise<Session | null>;
+let _signIn: (...args: never[]) => Promise<unknown>;
+let _signOut: (...args: never[]) => Promise<unknown>;
+
+if (typeof created === "function") {
+  // NextAuth v4 shape: single handler function used for both GET and POST
+  const handler: RouteHandler = created;
+  _handlers = { GET: handler, POST: handler };
+  _auth = async () => null;
+  _signIn = async (..._args: never[]) =>
+    Promise.reject(new Error("signIn() unavailable in this NextAuth version."));
+  _signOut = async (..._args: never[]) =>
+    Promise.reject(new Error("signOut() unavailable in this NextAuth version."));
+} else {
+  // NextAuth v5 shape
+  _handlers = created.handlers;
+  _auth = created.auth;
+  _signIn = created.signIn;
+  _signOut = created.signOut;
+}
+
+export const handlers = _handlers;
+export const auth = _auth;
+export const signIn = _signIn;
+export const signOut = _signOut;
 
 // ---- Helper you already use elsewhere ----
 export async function getYahooAccessTokenFromServer(): Promise<string | null> {
